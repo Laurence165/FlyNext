@@ -1,0 +1,210 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id          String         @id @default(uuid())
+  firstName   String
+  lastName    String
+  email       String         @unique
+  password    String
+  phone       String?
+  profilePic  String?
+  role        Role           @default(USER)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  hotels       Hotel[]
+  bookings     Booking[]
+  notifications Notification[]
+}
+
+enum Role {
+  USER
+  HOTEL_OWNER
+}
+
+model Hotel {
+  id          String         @id @default(uuid())
+  name        String
+  logo        String?
+  address     String
+  city        String         // Keep as a string field without relation
+  latitude    Float
+  longitude   Float
+  starRating  Int
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  ownerId     String
+  owner       User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  roomTypes   RoomType[] 
+  images      HotelImage[]
+}
+
+model HotelImage {
+  id       String   @id @default(uuid())
+  url      String
+  hotel    Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId  String
+}
+
+model RoomType {
+  id              String    @id @default(uuid())
+  hotelId         String
+  hotel           Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  name            String    // "Double", "Suite", etc.
+  pricePerNight   Float
+  totalRooms      Int       @default(0) // Total number of rooms of this type
+  amenities       amenities[]
+  images          RoomTypeImage[]
+  roomAvailability RoomAvailability[]
+  reservations    Reservation[]
+}
+
+model amenities {
+  id         String   @id @default(uuid())
+  roomTypeId String
+  roomType   RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  amenity    String
+}
+
+model RoomTypeImage {
+  id          String   @id @default(uuid())
+  roomTypeId  String
+  roomType    RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  imageUrl    String
+}
+
+// New model for tracking room availability by date
+model RoomAvailability {
+  id              String    @id @default(uuid())
+  roomTypeId      String
+  roomType        RoomType  @relation(fields: [roomTypeId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  date            DateTime
+  availableRooms  Int
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([roomTypeId, date]) // Ensure unique combination of roomTypeId and date
+}
+
+model Reservation {
+  id           String            @id @default(uuid())
+  roomTypeId   String
+  roomType     RoomType         @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  checkInDate  DateTime
+  checkOutDate DateTime
+  roomsBooked  Int
+  status       ReservationStatus @default(CONFIRMED)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  bookingId    String
+  booking      Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+model Booking {
+  id           String         @id @default(uuid())
+  totalPrice   Float
+  status       BookingStatus  @default(PENDING)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @default(now())
+
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
+  flights      Flight[]
+  invoice      Invoice?
+}
+
+model Flight {
+  id            String       @id @default(uuid())
+  afsFlightId   String
+  departureTime DateTime
+  arrivalTime   DateTime
+  source        String
+  destination   String
+  status        ReservationStatus @default(CONFIRMED)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @default(now())
+
+  bookingId     String
+  booking       Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+model Invoice {
+  id        String     @id @default(uuid())
+  pdfPath   String
+  createdAt DateTime   @default(now())
+
+  booking   Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingId String     @unique
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  message   String
+  type      NotificationType
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  HOTEL_BOOKING
+  FLIGHT_CHANGE
+}
+
+// City and Airport models for Advanced Flight System - separate from other models
+model City {
+  id          String    @id @default(uuid())
+  name        String
+  country     String
+  airports    Airport[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+
+  @@unique([name, country])
+}
+
+model Airport {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  cityId      String
+  city        City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  country     String
+  afsId       String   @unique  // External ID from AFS
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+}
+
+model Airline {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  baseAirport String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+}
