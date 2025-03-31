@@ -5,58 +5,25 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { hotelAPI } from "./services/api"
 
-// Sample featured hotels data as fallback
-const sampleFeaturedHotels = [
-  {
-    id: "h1",
-    name: "Grand Hotel",
-    location: "New York, USA",
-    price: 150,
-    rating: 4.5,
-    reviews: 128,
-    image: "/placeholder.svg?height=400&width=600",
-  },
-  {
-    id: "h2",
-    name: "Seaside Resort",
-    location: "Miami, USA",
-    price: 220,
-    rating: 4.8,
-    reviews: 95,
-    image: "/placeholder.svg?height=400&width=600",
-  },
-  {
-    id: "h3",
-    name: "Mountain Lodge",
-    location: "Denver, USA",
-    price: 180,
-    rating: 4.2,
-    reviews: 76,
-    image: "/placeholder.svg?height=400&width=600",
-  },
-  {
-    id: "h4",
-    name: "City View Hotel",
-    location: "Chicago, USA",
-    price: 195,
-    rating: 4.6,
-    reviews: 112,
-    image: "/placeholder.svg?height=400&width=600",
-  },
-]
+interface Hotel {
+  id: string
+  name: string
+  logo?: string
+  address: string
+  city: string
+  starRating?: number
+}
 
 // Make the component async to fetch data
 export default async function HomePage() {
   // Fetch featured hotels from the API with proper error handling
-  let featuredHotels = []
+  let featuredHotels: Hotel[] = []
   try {
     const apiHotels = await hotelAPI.getFeaturedHotels()
-    // Ensure we have an array
-    featuredHotels = Array.isArray(apiHotels) ? apiHotels : sampleFeaturedHotels
+    featuredHotels = Array.isArray(apiHotels) ? apiHotels : []
   } catch (error) {
     console.error("Error fetching featured hotels:", error)
-    // Fallback to sample data if API fails
-    featuredHotels = sampleFeaturedHotels
+    featuredHotels = [] // Empty array if API fails
   }
 
   return (
@@ -113,31 +80,25 @@ export default async function HomePage() {
           {featuredHotels.map((hotel) => (
             <Card key={hotel.id} className="overflow-hidden border-none shadow-md transition-all hover:shadow-lg">
               <div className="relative h-48 w-full overflow-hidden">
-                <Image src={hotel.image || "/placeholder.svg"} alt={hotel.name} fill className="object-cover" />
+                <Image 
+                  src={hotel.logo || "/placeholder-hotel.jpg"} 
+                  alt={hotel.name} 
+                  fill 
+                  className="object-cover"
+                />
               </div>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-semibold">{hotel.name}</h3>
-                    <p className="text-sm text-muted-foreground">{hotel.location}</p>
+                    <p className="text-sm text-muted-foreground">{hotel.city}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{hotel.address}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium">${hotel.price}</p>
-                    <p className="text-xs text-muted-foreground">per night</p>
-                  </div>
-                </div>
-                <div className="flex items-center mt-2">
-                  <div className="flex">
-                    {Array(Math.floor(hotel.rating))
-                      .fill(0)
-                      .map((_, i) => (
-                        <span key={i} className="text-yellow-500">
-                          ★
-                        </span>
-                      ))}
-                    {hotel.rating % 1 !== 0 && <span className="text-yellow-500">½</span>}
-                  </div>
-                  <span className="text-sm ml-1 text-muted-foreground">({hotel.reviews} reviews)</span>
+                  {hotel.starRating && (
+                    <div className="text-yellow-500">
+                      {'★'.repeat(hotel.starRating)}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

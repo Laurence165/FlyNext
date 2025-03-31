@@ -1,0 +1,279 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
+import { format } from "date-fns"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/ui/use-toast"
+import { hotelAPI } from "@/app/services/api"
+import { useAuth } from "@/app/components/auth/auth-context"
+import { useBooking } from "@/app/components/booking/booking-context"
+import { Star } from "lucide-react"
+import Image from "next/image"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+
+interface Hotel {
+  id: string
+  name: string
+  description: string
+  city: string
+  starRating?: string
+  logo?: string
+  address: string
+  roomTypes: {
+    id: string
+    name: string
+    pricePerNight: number
+    maxGuests: number
+  }[]
+}
+
+export default function HotelSearchResults() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const { toast } = useToast()
+  const { isAuthenticated } = useAuth()
+  const { addToCart } = useBooking()
+  const [hotels, setHotels] = useState<Hotel[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isBooking, setIsBooking] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null)
+  const [selectedRoomType, setSelectedRoomType] = useState<string>("")
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+  useEffect(() => {
+    const fetchHotels = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        const params = {
+          city: searchParams.get('city') || '',
+          checkIn: searchParams.get('checkIn') || '',
+          checkOut: searchParams.get('checkOut') || '',
+          guests: searchParams.get('guests') || ''
+        }
+
+        const results = await hotelAPI.getHotels(params)
+        setHotels(results)
+      } catch (err) {
+        console.error('Error fetching hotels:', err)
+        setError('Failed to load hotels. Please try again.')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchHotels()
+  }, [searchParams])
+
+  const handleBookNow = (hotel: Hotel) => {
+    if (!isAuthenticated) {
+      // Store booking intent in session storage
+      sessionStorage.setItem('bookingIntent', JSON.stringify({
+        type: 'hotel',
+        hotelId: hotel.id,
+        checkIn: searchParams.get('checkIn'),
+        checkOut: searchParams.get('checkOut'),
+        guests: searchParams.get('guests'),
+        returnUrl: window.location.pathname + window.location.search
+      }))
+
+      // Redirect to login page
+      router.push(`/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`)
+      return
+    }
+
+    setSelectedHotel(hotel)
+    setIsDialogOpen(true)
+  }
+
+  // Check for booking intent on component mount
+  useEffect(() => {
+    if (isAuthenticated) {
+      const bookingIntent = sessionStorage.getItem('bookingIntent')
+      if (bookingIntent) {
+        try {
+          const intent = JSON.parse(bookingIntent)
+          if (intent.type === 'hotel' && intent.hotelId) {
+            const hotel = hotels.find(h => h.id === intent.hotelId)
+            if (hotel) {
+              setSelectedHotel(hotel)
+              setIsDialogOpen(true)
+            }
+          }
+          // Clear the booking intent after processing
+          sessionStorage.removeItem('bookingIntent')
+        } catch (error) {
+          console.error('Error processing booking intent:', error)
+          sessionStorage.removeItem('bookingIntent')
+        }
+      }
+    }
+  }, [isAuthenticated, hotels])
+
+  const handleConfirmBooking = async (roomTypeId: string) => {
+    if (!selectedHotel) return
+
+    if (!isAuthenticated) {
+      toast({
+        title: "Login Required",
+        description: "Please login to book a hotel",
+        variant: "destructive",
+      })
+      router.push(`/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`)
+      return
+    }
+
+    try {
+      setIsBooking(true)
+      
+      const bookingData = {
+        hotelId: selectedHotel.id,
+        checkIn: searchParams.get('checkIn')!,
+        checkOut: searchParams.get('checkOut')!,
+        guests: Number(searchParams.get('guests')),
+        roomTypeId: roomTypeId,
+      }
+
+      await addToCart({
+        type: "hotel",
+        hotel: {
+          ...selectedHotel,
+          roomTypeId,
+          checkIn: bookingData.checkIn,
+          checkOut: bookingData.checkOut,
+          guests: bookingData.guests,
+        },
+      })
+
+      toast({
+        title: "Success",
+        description: "Hotel has been added to your cart",
+      })
+
+      setIsDialogOpen(false)
+      router.push('/checkout')
+    } catch (error) {
+      console.error('Error booking hotel:', error)
+      toast({
+        title: "Error",
+        description: "Failed to add hotel to cart. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsBooking(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">Loading hotels...</div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center text-red-500">{error}</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Hotels in {searchParams.get('city')}</h1>
+        <p className="text-muted-foreground">
+          {searchParams.get('checkIn')} - {searchParams.get('checkOut')} · {searchParams.get('guests')} guest
+          {Number(searchParams.get('guests')) > 1 ? 's' : ''}
+        </p>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {hotels.map((hotel) => (
+          <Card key={hotel.id} className="overflow-hidden">
+            <div className="relative h-48 w-full">
+              <Image
+                src={hotel.logo || '/placeholder-hotel.jpg'}
+                alt={hotel.name}
+                fill
+                className="object-cover"
+              />
+            </div>
+            <CardHeader>
+              <CardTitle>{hotel.name}</CardTitle>
+              <p className="text-sm text-muted-foreground">{hotel.address}</p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">{hotel.description}</p>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Starting from</p>
+                    <p className="font-semibold">
+                      ${Math.min(...hotel.roomTypes.map(r => r.pricePerNight))}/night
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => handleBookNow(hotel)}
+                    disabled={isBooking}
+                  >
+                    Book Now
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Select Room Type</DialogTitle>
+            <DialogDescription>
+              Choose a room type for your stay at {selectedHotel?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {selectedHotel?.roomTypes.map((room) => (
+              <div
+                key={room.id}
+                className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent cursor-pointer"
+                onClick={() => handleConfirmBooking(room.id)}
+              >
+                <div>
+                  <p className="font-medium">{room.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Up to {room.maxGuests} guests
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold">${room.pricePerNight}</p>
+                  <p className="text-sm text-muted-foreground">per night</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {hotels.length === 0 && (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">No hotels found matching your criteria.</p>
+        </div>
+      )}
+    </div>
+  )
+}

@@ -327,17 +327,19 @@ export default function BookingsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm Cancellation</DialogTitle>
-            <DialogDescription>Are you sure you want to cancel your {cancelType}?</DialogDescription>
+            <DialogDescription>
+              Are you sure you want to cancel {cancelType ? `the ${cancelType}` : "this booking"}? This action cannot be
+              undone.
+            </DialogDescription>
           </DialogHeader>
-
-          <DialogFooter>
+          <div className="flex justify-end space-x-2">
             <Button variant="outline" onClick={() => setCancelType(null)}>
               Keep Booking
             </Button>
             <Button variant="destructive" onClick={handleCancelBooking} disabled={isCancelling}>
               {isCancelling ? "Cancelling..." : "Confirm Cancellation"}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -91,7 +91,18 @@ export const bookingAPI = {
 
   getBookingById: (id: string) => fetchAPI<any>(`/bookings/${id}`),
 
-  createBooking: (bookingData: any) =>
+  createBooking: (bookingData: {
+    flightBooking?: {
+      afsFlightId: string
+      departureTime: string
+      arrivalTime: string
+      source: string
+      destination: string
+      price: number
+    }[]
+    hotelBooking?: any
+    totalPrice: number
+  }) =>
     fetchAPI<any>("/bookings", {
       method: "POST",
       body: JSON.stringify(bookingData),
@@ -106,29 +117,78 @@ export const bookingAPI = {
 
 // Hotel API
 export const hotelAPI = {
-  getHotels: (params?: any) => {
-    const queryParams = params ? new URLSearchParams(params).toString() : ""
-    return fetchAPI<any[]>(`/hotels${queryParams ? `?${queryParams}` : ""}`)
+  getHotels: (params?: {
+    city?: string
+    checkIn?: string
+    checkOut?: string
+    guests?: string
+    minPrice?: string
+    maxPrice?: string
+    minStarRating?: string
+    maxStarRating?: string
+  }) => {
+    // Build query string to match existing API route expectations
+    const searchParams = new URLSearchParams()
+    
+    if (params) {
+      // Only add parameters that are defined
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          searchParams.append(key, value)
+        }
+      })
+    }
+    
+    return fetchAPI<any[]>(`/hotels${searchParams.toString() ? `?${searchParams.toString()}` : ''}`)
   },
 
   getHotelById: (id: string) => fetchAPI<any>(`/hotels/${id}`),
 
-  getFeaturedHotels: async () => {
-    try {
-      return await fetchAPI<any[]>("/hotels/featured")
-    } catch (error) {
-      console.error("Error in getFeaturedHotels:", error)
-      // Return empty array instead of throwing to make it easier to handle
-      return []
-    }
-  },
+  getFeaturedHotels: () => fetchAPI<any[]>("/hotels"),
+
+  bookHotel: (bookingData: {
+    hotelId: string
+    checkIn: string
+    checkOut: string
+    guests: number
+    roomTypeId: string
+  }) => 
+    fetchAPI<any>("/api/bookings", {
+      method: "POST",
+      body: JSON.stringify({
+        hotelBooking: bookingData,
+        totalPrice: 0, // This will be calculated on the server
+      }),
+    }),
 }
 
 // Flight API
 export const flightAPI = {
-  searchFlights: (params: any) => {
-    const queryParams = new URLSearchParams(params).toString()
-    return fetchAPI<any[]>(`/flights/search?${queryParams}`)
+  searchFlights: async (params: {
+    origin: string
+    destination: string
+    date?: string
+    departDate?: string
+    returnDate?: string
+  }) => {
+    // Check if it's a round trip search
+    if (params.departDate && params.returnDate) {
+      const queryParams = new URLSearchParams({
+        origin: params.origin,
+        destination: params.destination,
+        departDate: params.departDate,
+        returnDate: params.returnDate
+      }).toString()
+      return fetchAPI<{ outbound: any[], return: any[] }>(`/flights/roundtrip?${queryParams}`)
+    } else {
+      // One-way search
+      const queryParams = new URLSearchParams({
+        origin: params.origin,
+        destination: params.destination,
+        date: params.date || params.departDate!
+      }).toString()
+      return fetchAPI<{ results: any[] }>(`/flights/search?${queryParams}`)
+    }
   },
 
   getFlightById: (id: string) => fetchAPI<any>(`/flights/${id}`),
@@ -148,8 +208,8 @@ export const notificationAPI = {
 
   markAsRead: async (id: string) => {
     try {
-      return await fetchAPI<void>(`/notifications/${id}/read`, {
-        method: "POST",
+      return await fetchAPI<void>(`/notifications/${id}`, {
+        method: "PUT",
       })
     } catch (error) {
       console.error(`Error marking notification ${id} as read:`, error)
@@ -158,16 +218,44 @@ export const notificationAPI = {
     }
   },
 
-  markAllAsRead: async () => {
-    try {
-      return await fetchAPI<void>("/notifications/read-all", {
-        method: "POST",
-      })
-    } catch (error) {
-      console.error("Error marking all notifications as read:", error)
-      // Return empty object instead of throwing
-      return {}
-    }
-  },
+  // markAllAsRead: async () => {
+  //   try {
+  //     return await fetchAPI<void>("/notifications/read-all", {
+  //       method: "POST",
+  //     })
+  //   } catch (error) {
+  //     console.error("Error marking all notifications as read:", error)
+  //     // Return empty object instead of throwing
+  //     return {}
+  //   }
+  // },
+}
+
+// Checkout API
+export const checkoutAPI = {
+  processPayment: (paymentData: {
+    bookingId: string
+    cardNumber: string
+    cardholderName: string
+    expiryDate: string
+    cvv: string
+  }) => {
+    return fetchAPI<{
+      success: boolean
+      message: string
+      booking: {
+        id: string
+        status: string
+        totalPrice: number
+      }
+      invoice: {
+        id: string
+        pdfPath: string
+      }
+    }>("/checkout", {
+      method: "POST",
+      body: JSON.stringify(paymentData),
+    })
+  }
 }
 

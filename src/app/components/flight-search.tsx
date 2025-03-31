@@ -1,8 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Calendar, ChevronDown, Plane } from "lucide-react"
 import { format } from "date-fns"
+import { Airport } from "@prisma/client"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/app/components/auth/auth-context"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,6 +14,9 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { flightAPI } from "../services/api"
+import { bookingAPI } from "../services/api"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function FlightSearch() {
   const [tripType, setTripType] = useState<"oneWay" | "roundTrip">("roundTrip")
@@ -22,14 +28,51 @@ export default function FlightSearch() {
   const [isToOpen, setIsToOpen] = useState(false)
   const [passengers, setPassengers] = useState(1)
   const [showResults, setShowResults] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [flights, setFlights] = useState<{ results?: any[], outbound?: any[], return?: any[] }>({})
+  const [airports, setAirports] = useState<Airport[]>([])
 
-  const handleSearch = () => {
-    // Validate form
+  useEffect(() => {
+    async function fetchAirports() {
+      try {
+        const response = await fetch('/api/flights/airports')
+        const data = await response.json()
+        setAirports(data)
+      } catch (error) {
+        console.error('Error fetching airports:', error)
+      }
+    }
+
+    fetchAirports()
+  }, [])
+
+  const handleSearch = async () => {
     if (!from || !to || !departureDate || (tripType === "roundTrip" && !returnDate)) {
       return
     }
 
-    setShowResults(true)
+    try {
+      setIsLoading(true)
+      setError(null)
+      
+      const searchParams = {
+        origin: from,
+        destination: to,
+        departDate: departureDate.toISOString().split("T")[0],
+        returnDate: returnDate?.toISOString().split("T")[0],
+      }
+
+      const flightResults = await flightAPI.searchFlights(searchParams)
+      console.log('Flight results:', flightResults)
+      setFlights(flightResults)
+      setShowResults(true)
+    } catch (error) {
+      console.error("Error searching flights:", error)
+      setError("Unable to search flights. Please try again later.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -75,7 +118,7 @@ export default function FlightSearch() {
                         <CommandGroup className="max-h-[300px] overflow-auto">
                           {airports.map((airport) => (
                             <CommandItem
-                              key={airport.code}
+                              key={airport.id}
                               value={airport.code}
                               onSelect={(currentValue) => {
                                 setFrom(currentValue)
@@ -85,7 +128,7 @@ export default function FlightSearch() {
                               <div className="flex flex-col">
                                 <span>{airport.name}</span>
                                 <span className="text-xs text-muted-foreground">
-                                  {airport.code} - {airport.city}, {airport.country}
+                                  {airport.code} - {airport.city.name}, {airport.country}
                                 </span>
                               </div>
                             </CommandItem>
@@ -119,7 +162,7 @@ export default function FlightSearch() {
                         <CommandGroup className="max-h-[300px] overflow-auto">
                           {airports.map((airport) => (
                             <CommandItem
-                              key={airport.code}
+                              key={airport.id}
                               value={airport.code}
                               onSelect={(currentValue) => {
                                 setTo(currentValue)
@@ -129,7 +172,7 @@ export default function FlightSearch() {
                               <div className="flex flex-col">
                                 <span>{airport.name}</span>
                                 <span className="text-xs text-muted-foreground">
-                                  {airport.code} - {airport.city}, {airport.country}
+                                  {airport.code} - {airport.city.name}, {airport.country}
                                 </span>
                               </div>
                             </CommandItem>
@@ -223,9 +266,26 @@ export default function FlightSearch() {
           </div>
         </CardContent>
       </Card>
-
-      {showResults && (
-        <FlightResults from={from} to={to} departureDate={departureDate} returnDate={returnDate} tripType={tripType} />
+      {isLoading && (
+        <div className="text-center">
+          <p>Searching for flights...</p>
+        </div>
+      )}
+      {error && (
+        <div className="text-red-500 text-center">
+          {error}
+        </div>
+      )}
+      {showResults && !isLoading && (
+        <FlightResults
+          from={from}
+          to={to}
+          departureDate={departureDate}
+          returnDate={returnDate}
+          tripType={tripType}
+          flights={flights}
+          airports={airports}
+        />
       )}
     </div>
   )
@@ -237,97 +297,179 @@ interface FlightResultsProps {
   departureDate?: Date
   returnDate?: Date
   tripType: "oneWay" | "roundTrip"
+  flights: {
+    results?: Array<{
+      legs: number
+      flights: Array<{
+        id: string
+        flightNumber: string
+        departureTime: string
+        arrivalTime: string
+        airline: {
+          code: string
+          name: string
+        }
+        origin: {
+          code: string
+          name: string
+          city: string
+          country: string
+        }
+        destination: {
+          code: string
+          name: string
+          city: string
+          country: string
+        }
+        price: number
+        currency: string
+      }>
+    }>
+    outbound?: any[]
+    return?: any[]
+  }
+  airports: Airport[]
 }
 
-function FlightResults({ from, to, departureDate, returnDate, tripType }: FlightResultsProps) {
+function FlightResults({ from, to, departureDate, returnDate, tripType, flights, airports }: FlightResultsProps) {
+  const { toast } = useToast()
+  const router = useRouter()
+  const { isAuthenticated } = useAuth()
+  const [isBooking, setIsBooking] = useState(false)
+
   const fromAirport = airports.find((airport) => airport.code === from)
   const toAirport = airports.find((airport) => airport.code === to)
 
-  // Format dates safely
-  const formatDate = (date?: Date) => {
-    if (!date || typeof window === "undefined") return ""
-    return format(date, "MMM d, yyyy")
+  const flightResults = flights.results || []
+
+  const handleBookFlight = async (result: any) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Login Required",
+        description: "Please login to book flights",
+        duration: 5000,
+      })
+      
+      const searchState = {
+        from,
+        to,
+        departureDate,
+        returnDate,
+        tripType,
+        selectedFlight: result
+      }
+      sessionStorage.setItem('pendingFlightSearch', JSON.stringify(searchState))
+      
+      router.push(`/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`)
+      return
+    }
+
+    try {
+      setIsBooking(true)
+      
+      const flightBooking = result.flights.map((flight: any) => ({
+        afsFlightId: flight.id,
+        departureTime: flight.departureTime,
+        arrivalTime: flight.arrivalTime,
+        source: flight.origin.code,
+        destination: flight.destination.code,
+        price: flight.price
+      }))
+
+      const totalPrice = result.flights.reduce((total: number, flight: any) => total + flight.price, 0)
+
+      const bookingData = {
+        flightBooking,
+        totalPrice
+      }
+
+      const response = await bookingAPI.createBooking(bookingData)
+      
+      toast({
+        title: "Success!",
+        description: "Your flight has been successfully booked.",
+        duration: 5000,
+      })
+
+      sessionStorage.removeItem('pendingFlightSearch')
+      
+      router.push(`/bookings/${response.booking.id}`)
+    } catch (error) {
+      console.error('Error booking flight:', error)
+      toast({
+        title: "Booking Failed",
+        description: "There was an error booking your flight. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      })
+    } finally {
+      setIsBooking(false)
+    }
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">
-          {fromAirport?.city} to {toAirport?.city}
+          {fromAirport?.city?.name} to {toAirport?.city?.name}
           {departureDate && (
             <span className="ml-2 text-sm font-normal text-muted-foreground">
-              {formatDate(departureDate)}
-              {tripType === "roundTrip" && returnDate && ` - ${formatDate(returnDate)}`}
+              {format(departureDate, "MMM d, yyyy")}
+              {tripType === "roundTrip" && returnDate && ` - ${format(returnDate, "MMM d, yyyy")}`}
             </span>
           )}
         </h2>
-        <div className="flex space-x-2">
-          <Button variant="outline" size="sm">
-            Filter
-          </Button>
-          <Button variant="outline" size="sm">
-            Sort: Price
-          </Button>
-        </div>
       </div>
 
       <div className="space-y-4">
-        {mockFlights.map((flight) => (
-          <Card key={flight.id} className="overflow-hidden">
-            <CardContent className="p-0">
-              <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4">
+        {flightResults.map((result, index) => (
+          <Card key={index} className="mb-4">
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                        <Plane className="h-4 w-4" />
-                      </div>
+                  {result.flights.map((flight, flightIndex) => (
+                    <div key={flight.id} className="flex items-center gap-4">
                       <div>
-                        <p className="font-medium">{flight.airline}</p>
-                        <p className="text-xs text-muted-foreground">Flight {flight.flightNumber}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">${flight.price}</p>
-                      <p className="text-xs text-muted-foreground">{flight.class}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-[auto_1fr_auto] gap-2 items-center">
-                    <div className="text-right">
-                      <p className="font-medium">{flight.departureTime}</p>
-                      <p className="text-xs text-muted-foreground">{flight.departureCode}</p>
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <div className="text-xs text-muted-foreground mb-1">{flight.duration}</div>
-                      <div className="w-full flex items-center">
-                        <div className="h-[2px] flex-1 bg-muted"></div>
-                        <div className="mx-1 text-xs text-muted-foreground">
-                          {flight.stops > 0 ? `${flight.stops} stop${flight.stops > 1 ? "s" : ""}` : "Direct"}
+                        <p className="font-medium">{flight.airline.name}</p>
+                        <p className="text-sm text-muted-foreground">Flight {flight.flightNumber}</p>
+                        <div className="mt-2">
+                          <p>{format(new Date(flight.departureTime), 'HH:mm')} - {format(new Date(flight.arrivalTime), 'HH:mm')}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {flight.origin.city} ({flight.origin.code}) → {flight.destination.city} ({flight.destination.code})
+                          </p>
                         </div>
-                        <div className="h-[2px] flex-1 bg-muted"></div>
                       </div>
+                      {flightIndex < result.flights.length - 1 && (
+                        <div className="text-sm text-muted-foreground">
+                          <Plane className="h-4 w-4 rotate-90" />
+                          <span>Connection</span>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <p className="font-medium">{flight.arrivalTime}</p>
-                      <p className="text-xs text-muted-foreground">{flight.arrivalCode}</p>
-                    </div>
-                  </div>
-
-                  {flight.stops > 0 && (
-                    <div className="bg-muted/50 p-2 rounded text-sm">
-                      <p className="font-medium">Layover Details:</p>
-                      {flight.layovers.map((layover, index) => (
-                        <p key={index} className="text-xs text-muted-foreground">
-                          {layover.duration} in {layover.airport} ({layover.code})
-                        </p>
-                      ))}
-                    </div>
-                  )}
+                  ))}
                 </div>
-
-                <div className="flex items-center justify-end md:border-l md:pl-6">
-                  <Button>Select</Button>
+                <div className="text-right">
+                  <p className="font-bold">
+                    {result.flights[0].currency} {result.flights.reduce((total, flight) => total + flight.price, 0)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {result.legs > 1 ? `${result.legs - 1} stops` : 'Direct'}
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => handleBookFlight(result)}
+                    disabled={isBooking}
+                  >
+                    {isBooking ? (
+                      <div className="flex items-center gap-2">
+                        <span>Booking...</span>
+                      </div>
+                    ) : (
+                      isAuthenticated ? 'Select & Book' : 'Login to Book'
+                    )}
+                  </Button>
                 </div>
               </div>
             </CardContent>
