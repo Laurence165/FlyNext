@@ -1,48 +1,77 @@
-"use client"
+'use client'
 
-import type React from "react"
+import { useState, useRef, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Loader2, MapPin, Star, Upload, X } from 'lucide-react'
+import Image from 'next/image'
 
-import { useState, useRef, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Loader2, MapPin, Star, Upload, X } from "lucide-react"
-import Image from "next/image"
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/app/components/auth/auth-context'
+import { hotelAPI } from '@/app/services/api'
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { useToast } from "@/hooks/use-toast"
-import { useAuth } from "@/app/components/auth/auth-context"
-import { Hotel } from "@/types"
-import { createHotelAPI } from "@/app/services/api"
-export default function AddHotel() {
+export default function EditHotel() {
   const { user, isHotelOwner, isLoading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
+  
+  const [hotel, setHotel] = useState<any>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [images, setImages] = useState<string[]>([])
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
   const [formData, setFormData] = useState({
-    name: "",
-    address: "",
-    city: "",
+    name: '',
+    logo: '',
+    address: '',
+    city: '',
     latitude: 0,
     longitude: 0,
     starRating: 0,
-    logo: "",
     images: [] as string[],
   })
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const id = searchParams.get('id')  // Get `id` from the query params
+
   useEffect(() => {
-    // Only run on client-side
-    if (typeof window !== "undefined" && !isLoading) {
+    if (typeof window !== 'undefined' && !isLoading) {
       if (!isHotelOwner) {
-        router.push("/login")
+        router.push('/login')
       }
     }
   }, [isHotelOwner, router, isLoading])
+
+  // Fetch hotel data when `id` is available
+  useEffect(() => {
+    if (!id) return
+
+    const fetchHotelData = async () => {
+      try {
+        const data = await hotelAPI.getHotelById(id)
+        setHotel(data)
+        setFormData({
+          name: data.name,
+          logo: data.logo,
+          address: data.address,
+          city: data.city,
+          latitude: data.latitude,
+          longitude: data.longitude,
+          starRating: data.starRating,
+          images: data.images,
+        })
+        setImages(data.images) // Set images for preview
+      } catch (error) {
+        console.error('Error fetching hotel data:', error)
+      }
+    }
+
+    fetchHotelData()
+  }, [id])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -51,7 +80,7 @@ export default function AddHotel() {
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file && typeof window !== "undefined") {
+    if (file && typeof window !== 'undefined') {
       const imageUrl = URL.createObjectURL(file)
       setFormData((prev) => ({ ...prev, logo: imageUrl }))
     }
@@ -59,7 +88,7 @@ export default function AddHotel() {
 
   const handleImagesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
-    if (files && typeof window !== "undefined") {
+    if (files && typeof window !== 'undefined') {
       const newImages = Array.from(files).map((file) => URL.createObjectURL(file))
       setImages((prev) => [...prev, ...newImages])
     }
@@ -74,18 +103,18 @@ export default function AddHotel() {
 
     if (!isHotelOwner) {
       toast({
-        title: "Permission denied",
-        description: "Only hotel owners can add hotels",
-        variant: "destructive",
+        title: 'Permission denied',
+        description: 'Only hotel owners can edit hotels',
+        variant: 'destructive',
       })
       return
     }
 
     if (images.length === 0) {
       toast({
-        title: "Images required",
-        description: "Please upload at least one image of your hotel",
-        variant: "destructive",
+        title: 'Images required',
+        description: 'Please upload at least one image of your hotel',
+        variant: 'destructive',
       })
       return
     }
@@ -93,7 +122,7 @@ export default function AddHotel() {
     setIsSubmitting(true)
 
     try {
-      const hotelData = {
+      const updatedHotelData = {
         name: formData.name,
         address: formData.address,
         city: formData.city,
@@ -101,42 +130,38 @@ export default function AddHotel() {
         longitude: Number(formData.longitude),
         starRating: Number(formData.starRating),
         logo: formData.logo,
-        images: images
-      };
-      
-      console.log('Submitting hotel data:', hotelData);
-      
-      await createHotelAPI.createHotel(hotelData);
-      
+        images: images,
+      }
+      if (!id){
+        throw Error()
+      }
+      await hotelAPI.updateHotelById(id, updatedHotelData)
+
       toast({
-        title: "Hotel added",
-        description: "Your hotel has been added successfully",
+        title: 'Hotel updated',
+        description: 'Your hotel has been updated successfully',
       })
 
-      router.push("/hotel-owner/hotels")
+      router.push('/hotel-owner/hotels')
     } catch (error) {
       toast({
-        title: "Error",
-        description: "There was an error adding your hotel",
-        variant: "destructive",
+        title: 'Error',
+        description: 'There was an error updating your hotel',
+        variant: 'destructive',
       })
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  if (isLoading) {
+  if (isLoading || !hotel) {
     return <div className="container mx-auto px-4 py-8 text-center">Loading...</div>
-  }
-
-  if (!user || !isHotelOwner) {
-    return <div className="container mx-auto px-4 py-8 text-center">Unauthorized access</div>
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-3xl font-bold tracking-tight mb-6">Add New Hotel</h1>
+        <h1 className="text-3xl font-bold tracking-tight mb-6">Edit Hotel</h1>
 
         <form onSubmit={handleSubmit}>
           <Card className="mb-8">
@@ -156,19 +181,6 @@ export default function AddHotel() {
                   required
                 />
               </div>
-
-              {/* <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Describe your hotel, its amenities, and what makes it special"
-                  rows={4}
-                  required
-                />
-              </div> */}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -231,12 +243,12 @@ export default function AddHotel() {
                     <Button
                       key={rating}
                       type="button"
-                      variant={formData.starRating >= rating ? "default" : "outline"}
+                      variant={formData.starRating >= rating ? 'default' : 'outline'}
                       size="sm"
                       className="w-10 h-10 p-0"
                       onClick={() => setFormData((prev) => ({ ...prev, starRating: rating }))}
                     >
-                      <Star className={formData.starRating >= rating ? "fill-white" : ""} />
+                      <Star className={formData.starRating >= rating ? 'fill-white' : ''} />
                     </Button>
                   ))}
                 </div>
@@ -253,7 +265,7 @@ export default function AddHotel() {
               <div className="flex flex-col items-center space-y-4">
                 <div className="relative w-32 h-32 rounded-full overflow-hidden border-2 border-muted">
                   {formData.logo ? (
-                    <Image src={formData.logo || "/placeholder.svg"} alt="Hotel Logo" fill className="object-cover" />
+                    <Image src={formData.logo || '/placeholder.svg'} alt="Hotel Logo" fill className="object-cover" />
                   ) : (
                     <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground">
                       <MapPin className="h-8 w-8" />
@@ -288,7 +300,7 @@ export default function AddHotel() {
                   {images.map((image, index) => (
                     <div key={index} className="relative aspect-square rounded-md overflow-hidden border">
                       <Image
-                        src={image || "/placeholder.svg"}
+                        src={image || '/placeholder.svg'}
                         alt={`Hotel Image ${index + 1}`}
                         fill
                         className="object-cover"
@@ -328,7 +340,7 @@ export default function AddHotel() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => router.push("/hotel-owner/hotels")}
+              onClick={() => router.push('/hotel-owner/hotels')}
               disabled={isSubmitting}
             >
               Cancel
@@ -337,10 +349,10 @@ export default function AddHotel() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding Hotel...
+                  Updating Hotel...
                 </>
               ) : (
-                "Add Hotel"
+                'Update Hotel'
               )}
             </Button>
           </CardFooter>
@@ -349,4 +361,3 @@ export default function AddHotel() {
     </div>
   )
 }
-

@@ -41,7 +41,6 @@ export enum Role {
   }
   
   export interface Hotel {
-    id: string;
     name: string;
     logo?: string;
     address: string;
@@ -49,13 +48,9 @@ export enum Role {
     latitude: number;
     longitude: number;
     starRating: number;
-    createdAt: Date;
-    updatedAt: Date;
-  
-    ownerId: string;
-    owner: User;
-    roomTypes: RoomType[];
-    images: HotelImage[];
+
+    //roomTypes: RoomType[];
+    images: string[];
   }
   
   export interface HotelImage {
