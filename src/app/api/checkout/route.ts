@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateToken } from "@/app/api/middleware";
 import { PrismaClient } from "@prisma/client";
-import { generateInvoicePDF } from "@/lib/pdfGenerator"; // TypeScript will automatically find .tsx files
 
 const prisma = new PrismaClient();
 
@@ -53,7 +52,7 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body = await request.json();
     const { 
-      bookingId, 
+      bookingIds, // Now an array of booking IDs
       cardNumber, 
       cardholderName,
       expiryDate, 
@@ -61,9 +60,10 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validate required fields
-    if (!bookingId || !cardNumber || !cardholderName || !expiryDate || !cvv) {
+    if (!bookingIds || !Array.isArray(bookingIds) || bookingIds.length === 0 || 
+        !cardNumber || !cardholderName || !expiryDate || !cvv) {
       return NextResponse.json(
-        { error: "All payment fields are required" },
+        { error: "All payment fields are required and bookingIds must be a non-empty array" },
         { status: 400 }
       );
     }
@@ -83,11 +83,12 @@ export async function POST(request: NextRequest) {
     // Extract user ID from authenticated user
     const userId = user.id;
 
-    // Find the booking
-    const booking = await prisma.booking.findUnique({
+    // Find all the bookings
+    const bookings = await prisma.booking.findMany({
       where: { 
-        id: bookingId,
-        userId: userId // Ensure booking belongs to the user
+        id: { in: bookingIds },
+        userId: userId, // Ensure bookings belong to the user
+        status: "PENDING" // Only process pending bookings
       },
       include: {
         flights: true,
@@ -103,50 +104,71 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    if (!booking) {
-      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    // Check if all bookings were found
+    if (bookings.length !== bookingIds.length) {
+      return NextResponse.json({ 
+        error: "One or more bookings not found or already processed" 
+      }, { status: 404 });
     }
 
-    // Update booking status to CONFIRMED
-    await prisma.booking.update({
-      where: { id: bookingId },
-      data: { status: "CONFIRMED" }
-    });
+    // Calculate total amount
+    const totalAmount = bookings.reduce((sum, booking) => sum + booking.totalPrice, 0);
 
-    // Generate invoice PDF using react-pdf/renderer
-    const pdfPath = await generateInvoicePDF(booking, user);
-
-    // Create invoice record in database
-    const invoice = await prisma.invoice.create({
+    // Create a payment record
+    const payment = await prisma.payment.create({
       data: {
-        pdfPath,
-        bookingId: booking.id
+        amount: totalAmount,
+        status: "COMPLETED",
+        paymentMethod: "credit_card",
+        userId: userId
       }
     });
 
-    // Create notification for successful payment
+    // Update all bookings to CONFIRMED status and link to payment
+    const updatedBookings = await Promise.all(bookings.map(booking => 
+      prisma.booking.update({
+        where: { id: booking.id },
+        data: { 
+          status: "CONFIRMED",
+          paymentId: payment.id
+        }
+      })
+    ));
+
+    // Create notifications for successful payment
     await prisma.notification.create({
       data: {
         userId: userId,
-        message: `Payment confirmed for booking #${bookingId.substring(0, 8)}. Invoice is ready.`,
-        type: "BOOKING_CONFIRMED",
+        message: `Payment of $${totalAmount.toFixed(2)} confirmed for ${bookings.length} booking(s). Invoices will be generated shortly.`,
+        type: "PAYMENT_CONFIRMED",
         read: false
       }
     });
 
-    // Return success response with invoice details
+    // Trigger invoice generation asynchronously
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/invoices/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': request.headers.get('Authorization') || ''
+      },
+      body: JSON.stringify({ bookingIds })
+    }).catch(err => console.error("Error triggering invoice generation:", err));
+
+    // Return success response with payment details
     return NextResponse.json({
       success: true,
       message: "Payment processed successfully",
-      booking: {
-        id: booking.id,
-        status: "CONFIRMED",
-        totalPrice: booking.totalPrice
+      payment: {
+        id: payment.id,
+        amount: payment.amount,
+        status: payment.status
       },
-      invoice: {
-        id: invoice.id,
-        pdfPath: invoice.pdfPath
-      }
+      bookings: updatedBookings.map(booking => ({
+        id: booking.id,
+        status: booking.status,
+        totalPrice: booking.totalPrice
+      }))
     });
   } catch (error) {
     console.error("Error processing checkout:", error);
