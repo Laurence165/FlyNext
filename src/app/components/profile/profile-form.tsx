@@ -12,14 +12,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth, type User } from "../auth/auth-context"
-
+import { profileAPI } from "@/app/services/api" 
+import { useRouter } from "next/navigation"
 export default function ProfileForm() {
   const { user, updateProfile } = useAuth()
+  const router = useRouter()
   const [formData, setFormData] = useState<Partial<User>>({
     firstName: user?.firstName || "",
     lastName: user?.lastName || "",
     email: user?.email || "",
     phone: user?.phone || "",
+    profilePic: user?.profilePic || "",
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(user?.profilePic || null)
@@ -31,14 +34,36 @@ export default function ProfileForm() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file && typeof window !== "undefined") {
-      // TODO: you would upload this to your server/cloud storage
-      // For frontend testing purposes, we'll just create a local URL
-      const imageUrl = URL.createObjectURL(file)
-      setPreviewImage(imageUrl)
-      setFormData((prev) => ({ ...prev, profilePic: imageUrl }))
+      try {
+        // Create FormData
+        const formData = new FormData()
+        formData.append("file", file)
+        formData.append("type", "profile")
+        // Upload the image
+        const response = await profileAPI.uploadProfileImage(formData)
+
+        if (!response.ok) {
+          throw new Error("Failed to upload image")
+        }
+
+        const data = await response.json()
+        
+        // Update preview and form data with the new image URL
+        setPreviewImage(data.url)
+        console.log("Uploaded Image URL:", data.url);
+
+        setFormData((prev) => ({ ...prev, profilePic: data.url }))
+      } catch (error) {
+        console.error("Error uploading image:", error)
+        toast({
+          title: "Error",
+          description: "Failed to upload image. Please try again.",
+          variant: "destructive",
+        })
+      }
     }
   }
 
@@ -47,11 +72,13 @@ export default function ProfileForm() {
     setIsSubmitting(true)
 
     try {
+      console.log(formData)
       await updateProfile(formData)
       toast({
         title: "Profile updated",
         description: "Your profile has been updated successfully",
       })
+      router.push("/profile")
     } catch (error) {
       toast({
         title: "Update failed",

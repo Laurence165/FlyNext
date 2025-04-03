@@ -2,11 +2,9 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL + "/api" //|| "/api"
 import axios from "axios"
 
-import { Hotel } from "@/types"
+import { Hotel, AddRoomType } from "@/types"
 // Generic fetch function with improved error handling
 async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-
-
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
 
   const defaultHeaders = {
@@ -27,6 +25,19 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
       },
     })
 
+    // Handle 403 Unauthorized
+    if (response.status === 403) {
+      // Clear the token
+      localStorage.removeItem("token")
+      // Redirect to login
+      window.location.href = "/login"
+      throw new Error("Unauthorized access. Please log in again.")
+    }
+
+    // Handle 403 Unauthorized
+    if (response.status === 401) {
+      return {} as T
+    }
     // Check if the response is JSON
     const contentType = response.headers.get("content-type")
     const isJson = contentType && contentType.includes("application/json")
@@ -48,7 +59,7 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
       return {} as T
     }
 
-    // Handle non-JSON successful responses (should not happen, but just in case)
+    // Handle non-JSON successful responses
     if (!isJson) {
       console.warn(`API Warning: Expected JSON but got non-JSON response from ${url}`)
       return {} as T
@@ -85,6 +96,8 @@ export const authAPI = {
       method: "PUT",
       body: JSON.stringify(userData),
     }),
+
+  
 }
 
 // Booking API
@@ -170,6 +183,32 @@ export const hotelAPI = {
   getMyHotels: () => fetchAPI<Hotel[]>('/hotels/my-hotels'),
 
   //updateHotel: () => fetchAPI<Hotel[]>
+
+  addRoomTypes: (hotelId: string, roomType: AddRoomType) => 
+    fetchAPI<any>(`/hotels/${hotelId}/roomTypes`, {
+      method: 'POST',
+      body: JSON.stringify({
+        name: roomType.name,
+        pricePerNight: roomType.pricePerNight,
+        amenities: roomType.amenities,
+        images: roomType.images,
+        totalRooms: roomType.totalRooms
+      }),
+    }),
+
+  getAllRoomTypes: (hotelId: string) => 
+    fetchAPI<AddRoomType[]>(`/hotels/${hotelId}/roomTypes`),
+
+  editRoomTypesByID: (hotelId: string, roomTypeId: string, roomType: AddRoomType) => 
+    fetchAPI<AddRoomType>(`/hotels/${hotelId}/roomTypes/${roomTypeId}`, {
+      method: 'PUT',
+      body: JSON.stringify(roomType),
+    }),
+
+  deleteRoomTypesByID: (hotelId: string, roomTypeId: string) => 
+    fetchAPI<void>(`/hotels/${hotelId}/roomTypes/${roomTypeId}`, {
+      method: 'DELETE',
+    }),
 }
 
 // Flight API
@@ -280,4 +319,25 @@ export const createHotelAPI = {
 
   },
 };
+
+// Profile API
+export const profileAPI = {
+  // ... existing profile methods ...
+
+  uploadProfileImage: async (formData: FormData) => {
+
+    //const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+    const response = await fetch(`${API_BASE_URL}/auth/upload-images`, {
+      method: "POST",
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || `Upload failed: ${response.statusText}`)
+    }
+
+    return response
+  },
+}
 

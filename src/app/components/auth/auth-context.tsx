@@ -48,11 +48,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         // Check for token in localStorage
         const token = localStorage.getItem("token")
-        console.log(token)
+        //  console.log(token)
         if (token) {
           authAPI.getProfile()
           .then(response => {
-            console.log('User profile fetched:', response);
+            //console.log('User profile fetched:', response);
             setUser(response.user);
             
           })
@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           throw new Error("User token unavaliable")
         }
       } catch (error) {
-        console.error("Auth initialization error:", error)
+        //console.error("Auth initialization error:", error)
         // For frontend testing purposes, set default user on error
         // setUser(DEFAULT_USER)
         // setApiAvailable(false)
@@ -84,8 +84,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Destructure the accessToken and refreshToken from the response
       const { user, accessToken, refreshToken } = await authAPI.login(email, password);
       
-      console.log("accessToken:", accessToken); // Log the accessToken to confirm it's returned
-      console.log("refreshToken:", refreshToken); // Log the refreshToken to confirm it's returned
+      // console.log("accessToken:", accessToken); // Log the accessToken to confirm it's returned
+      // console.log("refreshToken:", refreshToken); // Log the refreshToken to confirm it's returned
   
       if (typeof window !== "undefined") {
         // Store both tokens in localStorage
@@ -108,7 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true)
     try {
         try {
-          console.log(userData)
+          //console.log(userData)
           const { user, token } = await authAPI.signup(userData)
 
           // Save token to localStorage
@@ -139,7 +139,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const updateProfile = async (userData: Partial<User>) => {
     setIsLoading(true);
-    console.log("Token in localStorage:", localStorage.getItem("token"));
+    //console.log("Token in localStorage:", localStorage.getItem("token"));
 
     try {
       const { user: updatedUser } = await authAPI.updateProfile(userData);  // This will send the token with the request
@@ -154,7 +154,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  console.log(user)
+  //console.log(user)
   const contextValue = {
     user,
     isLoading,
@@ -165,7 +165,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     logout,
     updateProfile,
   }
-  console.log(contextValue.isAuthenticated)
+  //(contextValue.isAuthenticated)
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
 }
 
@@ -173,9 +173,9 @@ export const useAuth = () => {
   const context = useContext(AuthContext)
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider")
-    console.log("NO")
+    //console.log("NO")
   }
-  console.log("context: "+ context.isAuthenticated)
+  //console.log("context: "+ context.isAuthenticated)
   return context
 }
 

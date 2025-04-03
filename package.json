@@ -48,6 +48,7 @@
     "date-fns": "latest",
     "dotenv": "^16.4.7",
     "embla-carousel-react": "8.5.1",
+    "formidable": "^3.5.2",
     "input-otp": "1.4.1",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.454.0",

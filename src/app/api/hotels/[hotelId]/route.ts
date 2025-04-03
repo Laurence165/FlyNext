@@ -13,7 +13,7 @@ export async function GET(
   { params }: { params: { hotelId: string } }
 ) {
   try {
-    const { hotelId } = params;
+    const { hotelId } = await params;
     
     // Fetch hotel with related data based on the schema
     const hotel = await prisma.hotel.findUnique({

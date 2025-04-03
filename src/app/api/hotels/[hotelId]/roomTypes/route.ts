@@ -12,7 +12,7 @@ export async function POST(req: NextRequest, { params }: { params: { hotelId: st
     const user = await authenticateToken(req);
     if (user instanceof Response) return user;
 
-    const { hotelId } = params;
+    const { hotelId } = await params;
     const body = await req.json();
     const { name, pricePerNight, amenities, images, totalRooms = 0 } = body;
 
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest, { params }: { params: { hotelId: st
  */
 export async function GET(req: NextRequest, { params }: { params: { hotelId: string } }) {
   try {
-    const { hotelId } = params;
+    const { hotelId } = await params;
 
     // Verify hotel exists
     const hotel = await prisma.hotel.findUnique({

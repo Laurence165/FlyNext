@@ -52,7 +52,7 @@ export async function PUT(req: NextRequest) {
   }
   // Parse request body
   const updates = await req.json();
-
+  console.log("updates", updates)
   // Validate email (if provided and changed)
   if (updates.email && updates.email !== user.email) {
     const existingUser = await prisma.user.findUnique({

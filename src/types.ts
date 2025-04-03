@@ -193,3 +193,10 @@ export enum Role {
     updatedAt: Date;
   }
   
+  export interface AddRoomType {
+    name: string;
+    pricePerNight: number;
+    totalRooms: number;
+    amenities: string[];
+    images: string[];
+  }

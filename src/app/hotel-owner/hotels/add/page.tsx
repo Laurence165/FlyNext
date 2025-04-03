@@ -16,13 +16,16 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/app/components/auth/auth-context"
 import { Hotel } from "@/types"
 import { createHotelAPI } from "@/app/services/api"
+import { profileAPI } from "@/app/services/api"
 export default function AddHotel() {
   const { user, isHotelOwner, isLoading } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [images, setImages] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+
 
   const [formData, setFormData] = useState({
     name: "",
@@ -49,21 +52,70 @@ export default function AddHotel() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file && typeof window !== "undefined") {
-      const imageUrl = URL.createObjectURL(file)
-      setFormData((prev) => ({ ...prev, logo: imageUrl }))
-    }
-  }
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        // Create FormData
+        const formData = new FormData()
+        formData.append("file", file)
+        formData.append("type", "hotelLogo")
+        // Upload the image
+        const response = await profileAPI.uploadProfileImage(formData)
 
-  const handleImagesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (files && typeof window !== "undefined") {
-      const newImages = Array.from(files).map((file) => URL.createObjectURL(file))
-      setImages((prev) => [...prev, ...newImages])
+        if (!response.ok) {
+          throw new Error("Failed to upload image")
+        }
+
+        const data = await response.json()
+        
+        // Update preview and form data with the new image URL
+        setPreviewImage(data.url)
+        console.log("Uploaded Image URL:", data.url);
+
+        setFormData((prev) => ({ ...prev, logo: data.url }))
+      } catch (error) {
+        console.error("Error uploading image:", error)
+        toast({
+          title: "Error",
+          description: "Failed to upload image. Please try again.",
+          variant: "destructive",
+        })
+      }
     }
-  }
+  };
+  
+  const handleImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+  
+    try {
+      const uploadedUrls: string[] = [];
+  
+      for (const file of Array.from(files)) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("type", "hotelLogo"); // you can parameterize if needed
+  
+        const response = await profileAPI.uploadProfileImage(formData);
+  
+        if (!response.ok) {
+          throw new Error("Failed to upload image");
+        }
+  
+        const data = await response.json();
+        uploadedUrls.push(data.url);
+      }
+  
+      // Update the state with the newly uploaded URLs
+      setImages((prev) => [...prev, ...uploadedUrls]);
+  
+    } catch (error) {
+      console.error("Error uploading images:", error);
+    }
+  };
+  
+  
 
   const removeImage = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index))
@@ -253,7 +305,7 @@ export default function AddHotel() {
               <div className="flex flex-col items-center space-y-4">
                 <div className="relative w-32 h-32 rounded-full overflow-hidden border-2 border-muted">
                   {formData.logo ? (
-                    <Image src={formData.logo || "/placeholder.svg"} alt="Hotel Logo" fill className="object-cover" />
+                    <Image src={previewImage || "/placeholder.svg"} alt="Hotel Logo" fill className="object-cover" />
                   ) : (
                     <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground">
                       <MapPin className="h-8 w-8" />

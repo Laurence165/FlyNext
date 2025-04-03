@@ -13,7 +13,7 @@ export default function ProfileView() {
   const { user, logout } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
-  console.log("user: "+ user)
+  console.log("user: "+ user?.profilePic)
   const handleLogout = () => {
     logout()
     toast({
@@ -42,6 +42,7 @@ export default function ProfileView() {
         <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-muted mb-4">
           {user.profilePic ? (
             <Image
+              
               src={user.profilePic || "/placeholder.svg"}
               alt={`${user.firstName} ${user.lastName}`}
               width={128}

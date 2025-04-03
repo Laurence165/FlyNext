@@ -119,6 +119,12 @@ export default function Navbar() {
                       <DropdownMenuItem asChild>
                         <Link href="/hotel-owner/bookings">Bookings</Link>
                       </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/profile">Profile</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/bookings">My Bookings</Link>
+                      </DropdownMenuItem>
                     </>
                   ) : (
                     <>
