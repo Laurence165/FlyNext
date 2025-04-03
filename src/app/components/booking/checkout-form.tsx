@@ -44,7 +44,9 @@ export default function CheckoutForm() {
         ...values
       })
 
-      console.log('Payment response:', response) // Debug log
+      console.log("Response 👉", response);
+      console.log("Booking ID 👉", response.booking?.id);
+      console.log("Success 👉", response.success);
       
       if (response.success) {
         toast({

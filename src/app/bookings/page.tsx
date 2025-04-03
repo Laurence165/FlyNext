@@ -264,7 +264,7 @@ export default function BookingsPage() {
                 <div className="flex justify-between items-center pt-2">
                   <div>
                     <p className="text-sm text-muted-foreground">Total Amount</p>
-                    <p className="text-xl font-semibold">${selectedBooking.totalAmount}</p>
+                    <p className="text-xl font-semibold">${selectedBooking.totalPrice}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Status</p>
@@ -409,7 +409,7 @@ function BookingCard({ booking, onViewDetails, onCancel, isPast = false }: Booki
           )}
 
           <div className="flex justify-between items-center pt-2">
-            <p className="font-medium">Total: ${booking.totalAmount}</p>
+            <p className="font-medium">Total: ${booking.totalPrice}</p>
             <div className="flex space-x-2">
               <Button variant="outline" onClick={onViewDetails}>
                 View Details
@@ -428,4 +428,3 @@ function BookingCard({ booking, onViewDetails, onCancel, isPast = false }: Booki
     </Card>
   )
 }
-
