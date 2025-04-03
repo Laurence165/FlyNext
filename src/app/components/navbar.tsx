@@ -10,6 +10,7 @@ import { Menu, X, LogIn, ShoppingCart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "./auth/auth-context"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { ThemeToggle } from "@/app/components/themeProvider"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,6 +81,7 @@ export default function Navbar() {
           <NavLink href="/hotels" active={pathname === "/hotels"} onClick={closeMenu}>
             Hotels
           </NavLink>
+          <ThemeToggle />
 
           {user ? (
             <div className="flex items-center space-x-2">
@@ -192,6 +194,7 @@ export default function Navbar() {
             <NavLink href="/hotels" active={pathname === "/hotels"} onClick={closeMenu}>
               Hotels
             </NavLink>
+            <ThemeToggle />
 
             {user ? (
               <>
