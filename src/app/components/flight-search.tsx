@@ -348,7 +348,7 @@ function FlightResults({ from, to, departureDate, returnDate, tripType, flights,
         title: "Login Required",
         description: "Please login to book flights",
         duration: 5000,
-      })
+      });
       
       const searchState = {
         from,
@@ -356,56 +356,69 @@ function FlightResults({ from, to, departureDate, returnDate, tripType, flights,
         departureDate,
         returnDate,
         tripType,
-        selectedFlight: result
-      }
-      sessionStorage.setItem('pendingFlightSearch', JSON.stringify(searchState))
-      
-      router.push(`/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`)
-      return
+        selectedFlight: result,
+      };
+      sessionStorage.setItem("pendingFlightSearch", JSON.stringify(searchState));
+      router.push(`/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      return;
     }
 
     try {
-      setIsBooking(true)
-      
-      const flightBooking = result.flights.map((flight: any) => ({
+      setIsBooking(true);
+
+      // Compose booking data depending on tripType
+      const flightBookings = result.flights.map((flight: any) => ({
         afsFlightId: flight.id,
         departureTime: flight.departureTime,
         arrivalTime: flight.arrivalTime,
         source: flight.origin.code,
         destination: flight.destination.code,
-        price: flight.price
-      }))
+        price: flight.price,
+      }));
 
-      const totalPrice = result.flights.reduce((total: number, flight: any) => total + flight.price, 0)
+      const totalPrice = flightBookings.reduce((sum, f) => sum + f.price, 0);
 
-      const bookingData = {
-        flightBooking,
-        totalPrice
+      // ✅ If one-way -> send only one flightBooking object
+      // ✅ If round-trip -> send both in an array separately
+      // Your backend probably wants: 
+      // { flightBooking: { ... }, totalPrice }  for one-way
+      // { flightBooking: [ {...}, {...} ], totalPrice } for round-trip
+
+      const bookingData: any = {
+        totalPrice,
+      };
+
+      if (tripType === "oneWay") {
+        bookingData.flightBooking = flightBookings[0]; // send as object
+      } else {
+        bookingData.flightBooking = flightBookings; // send as array
       }
 
-      const response = await bookingAPI.createBooking(bookingData)
-      
+      console.log("Booking payload:", bookingData);
+
+      await bookingAPI.createBooking(bookingData);
+
       toast({
         title: "Success!",
         description: "Your flight has been successfully booked.",
         duration: 5000,
-      })
+      });
 
-      sessionStorage.removeItem('pendingFlightSearch')
-      
-      router.push(`/bookings/${response.booking.id}`)
+      sessionStorage.removeItem("pendingFlightSearch");
+      router.push("/bookings"); // or wherever you list bookings
     } catch (error) {
-      console.error('Error booking flight:', error)
+      console.error("Error booking flight:", error);
       toast({
         title: "Booking Failed",
         description: "There was an error booking your flight. Please try again.",
         variant: "destructive",
         duration: 5000,
-      })
+      });
     } finally {
-      setIsBooking(false)
+      setIsBooking(false);
     }
-  }
+};
+
 
   return (
     <div className="space-y-6">

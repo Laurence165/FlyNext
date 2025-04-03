@@ -161,7 +161,8 @@ export async function POST(req: NextRequest) {
           data: {
             totalPrice: finalTotalPrice,
             status: "CONFIRMED"
-          }
+          },
+          include: { flights: true, reservations: true } 
         });
       } else {
         // Create a new booking
@@ -170,7 +171,8 @@ export async function POST(req: NextRequest) {
             userId: user.id,
             totalPrice: finalTotalPrice,
             status: "CONFIRMED",
-          }
+          },
+          include: { flights: true, reservations: true } 
         });
       }
       

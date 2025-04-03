@@ -47,7 +47,7 @@ export type Booking = {
   userId: string
   flight?: FlightBooking
   hotel?: HotelBooking
-  totalAmount: number
+  totalPrice: number
   status: "confirmed" | "cancelled"
   bookingDate: string
   paymentMethod: string
@@ -155,7 +155,7 @@ const MOCK_BOOKINGS: Booking[] = [
       pricePerNight: 150,
       totalPrice: 1050,
     },
-    totalAmount: 1399,
+    totalPrice: 1399,
     status: "confirmed",
     bookingDate: "2023-05-20",
     paymentMethod: "Credit Card",
@@ -267,7 +267,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
           userId: "1",
           flight: bookingData.flight as FlightBooking,
           hotel: bookingData.hotel as HotelBooking,
-          totalAmount: (bookingData.flight?.price || 0) + (bookingData.hotel?.totalPrice || 0),
+          totalPrice: (bookingData.flight?.price || 0) + (bookingData.hotel?.totalPrice || 0),
           status: "confirmed",
           bookingDate: new Date().toISOString().split("T")[0],
           paymentMethod: "Credit Card",
@@ -307,7 +307,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
               const updatedBooking = {
                 ...booking,
                 flight: undefined,
-                totalAmount: booking.hotel ? booking.hotel.totalPrice : 0,
+                totalPrice: booking.hotel ? booking.hotel.totalPrice : 0,
               }
               // If no hotel either, cancel the entire booking
               if (!booking.hotel) {
@@ -319,7 +319,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
               const updatedBooking = {
                 ...booking,
                 hotel: undefined,
-                totalAmount: booking.flight ? booking.flight.price : 0,
+                totalPrice: booking.flight ? booking.flight.price : 0,
               }
               // If no flight either, cancel the entire booking
               if (!booking.flight) {

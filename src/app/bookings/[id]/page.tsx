@@ -195,7 +195,7 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
             <div className="flex justify-between items-center pt-2">
               <div>
                 <p className="text-sm text-muted-foreground">Total Amount</p>
-                <p className="text-xl font-semibold">${booking.totalAmount}</p>
+                <p className="text-xl font-semibold">${booking.totalPrice}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Payment Method</p>

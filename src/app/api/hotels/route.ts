@@ -1,9 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 import { authenticateToken } from "@/app/api/middleware";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 const prisma = new PrismaClient();
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
     // Parse query parameters
     const url = new URL(req.url);
@@ -70,7 +70,7 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const user = await authenticateToken(req);
   if (user instanceof Response) return user;
 
@@ -120,7 +120,7 @@ export async function POST(req: Request) {
         ...(images && images.length > 0
           ? {
               images: {
-                create: images.map((url) => ({ url })),
+                create: images.map((url: string) => ({ url })),
               },
             }
           : {}),
@@ -148,7 +148,7 @@ export async function POST(req: Request) {
   }
 }
 
-export async function PUT(req: Request) {
+export async function PUT(req: NextRequest) {
   const user = await authenticateToken(req);
   if (user instanceof Response) return user;
 
@@ -177,7 +177,7 @@ export async function PUT(req: Request) {
   return NextResponse.json(updatedHotel, { status: 200 });
 }
 
-export async function DELETE(req: Request) {
+export async function DELETE(req: NextRequest) {
   const user = await authenticateToken(req);
   if (user instanceof Response) return user;
 
