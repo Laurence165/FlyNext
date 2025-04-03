@@ -1,0 +1,1026 @@
+openapi: 3.0.3
+info:
+  title: FlyNext Final APIs
+  version: 1.0.0
+  contact: {}
+servers:
+  - url: http://localhost
+paths:
+  /api/flights/search:
+    get:
+      tags:
+        - Flights
+      summary: Search One Way
+      description: Search One Way
+      operationId: searchOneWay
+      parameters:
+        - name: origin
+          in: query
+          schema:
+            type: string
+            example: Atlanta
+        - name: destination
+          in: query
+          schema:
+            type: string
+            example: Zurich
+        - name: date
+          in: query
+          schema:
+            type: string
+            example: '2024-11-17'
+        - name: x-api-key
+          in: header
+          schema:
+            type: string
+            example: 9ef20d32ec8183caeb9670cdfb13738b004c5cf1ab42039f6edc8c18c795c583
+      responses:
+        '200':
+          description: ''
+  /api/flights/book:
+    post:
+      tags:
+        - Flights
+      summary: Book Flight
+      description: Book Flight
+      operationId: bookFlight
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                flightIds:
+                  type: array
+                  items:
+                    type: string
+                    example: 3742c9e4-1861-4ab8-8140-81870b19f100
+                  example:
+                    - 3742c9e4-1861-4ab8-8140-81870b19f100
+                    - b83fea74-01cd-418e-b09d-c761f8206573
+                passportNumber:
+                  type: string
+                  example: '123239934'
+            examples:
+              Book Flight:
+                value:
+                  flightIds:
+                    - 3742c9e4-1861-4ab8-8140-81870b19f100
+                    - b83fea74-01cd-418e-b09d-c761f8206573
+                  passportNumber: '123239934'
+      responses:
+        '200':
+          description: ''
+  /api/flights/autocomplete/:
+    get:
+      tags:
+        - Flights
+      summary: Search Autocomplete
+      description: Search Autocomplete
+      operationId: searchAutocomplete
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+            example: toronto
+      responses:
+        '200':
+          description: ''
+  /api/flights/roundtrip:
+    get:
+      tags:
+        - Flights
+      summary: Search Return
+      description: Search Return
+      operationId: searchReturn
+      parameters:
+        - name: origin
+          in: query
+          schema:
+            type: string
+            example: YYZ
+        - name: destination
+          in: query
+          schema:
+            type: string
+            example: Zurich
+        - name: departDate
+          in: query
+          schema:
+            type: string
+            example: '2024-11-17'
+        - name: returnDate
+          in: query
+          schema:
+            type: string
+            example: '2024-11-18'
+      responses:
+        '200':
+          description: ''
+  /api/flights/verify/:
+    get:
+      tags:
+        - Flights
+      summary: Verify Flight
+      description: Verify Flight
+      operationId: verifyFlight
+      parameters:
+        - name: bookingReference
+          in: query
+          schema:
+            type: string
+            example: CA7FC6
+      requestBody:
+        content:
+          application/json:
+            examples:
+              Verify Flight:
+                value: ''
+      responses:
+        '200':
+          description: ''
+  /api/auth/signup/:
+    post:
+      tags:
+        - Authentication
+      summary: User Signup
+      description: User Signup
+      operationId: userSignup
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: user1@example.com
+                firstName:
+                  type: string
+                  example: User
+                lastName:
+                  type: string
+                  example: User
+                password:
+                  type: string
+                  example: securePassword123
+                phone:
+                  type: string
+                  example: 123-456-7890
+                profilePic:
+                  type: string
+                  example: http://example.com/user-profile.jpg
+            examples:
+              Owner Signup:
+                value: |-
+                  {
+                    "firstName": "OwnerFirstName",
+                    "lastName": "OwnerLastName",
+                    "email": "owner@example.com",  // Clearly indicates a hotel owner
+                    "password": "securePassword123",
+                    "phone": "987-654-3210",
+                    "profilePic": "http://example.com/owner-profile.jpg"
+                  }
+              User Signup:
+                value:
+                  email: user1@example.com
+                  firstName: User
+                  lastName: User
+                  password: securePassword123
+                  phone: 123-456-7890
+                  profilePic: http://example.com/user-profile.jpg
+      responses:
+        '200':
+          description: ''
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User Login
+      description: User Login
+      operationId: userLogin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: owner@example.com
+                password:
+                  type: string
+                  example: securePassword123
+            examples:
+              Owner Login:
+                value:
+                  email: owner@example.com
+                  password: securePassword123
+              User Login:
+                value:
+                  email: user1@example.com
+                  password: securePassword123
+      responses:
+        '200':
+          description: ''
+  /api/auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Owner Refresh Token
+      description: Owner Refresh Token
+      operationId: ownerRefreshToken
+      parameters:
+        - name: ''
+          in: header
+          schema:
+            type: string
+            example: ''
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  example: '{{user_refresh_token}}'
+            examples:
+              Owner Refresh Token:
+                value:
+                  refreshToken: '{{owner_refresh_token}}'
+              User Refresh Token:
+                value:
+                  refreshToken: '{{user_refresh_token}}'
+      responses:
+        '200':
+          description: ''
+  /api/users/me/:
+    get:
+      tags:
+        - User
+      summary: User Info
+      description: User Info
+      operationId: userInfo
+      responses:
+        '200':
+          description: ''
+    put:
+      tags:
+        - User
+      summary: Update User
+      description: Update User
+      operationId: updateUser
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                  example: Omar
+                lastName:
+                  type: string
+                  example: Khun
+                phone:
+                  type: string
+                  example: '21312312'
+            examples:
+              Update User:
+                value:
+                  firstName: Omar
+                  lastName: Khun
+                  phone: '21312312'
+      responses:
+        '200':
+          description: ''
+  /api/hotels:
+    get:
+      tags:
+        - Hotel
+        - Hotel Search
+      summary: General - Fetch All
+      description: General - Fetch All
+      operationId: generalFetchAll
+      parameters:
+        - name: city
+          in: query
+          schema:
+            type: string
+            example: New York
+        - name: name
+          in: query
+          schema:
+            type: string
+            example: Gran
+        - name: minStarRating
+          in: query
+          schema:
+            type: string
+            example: '2'
+        - name: maxStarRating
+          in: query
+          schema:
+            type: string
+            example: '4'
+        - name: minPrice
+          in: query
+          schema:
+            type: string
+            example: '100'
+        - name: maxPrice
+          in: query
+          schema:
+            type: string
+            example: '150'
+        - name: checkIn
+          in: query
+          schema:
+            type: string
+            example: '2025-08-02'
+        - name: checkOut
+          in: query
+          schema:
+            type: string
+            example: '2025-08-10'
+      requestBody:
+        content:
+          application/json:
+            examples:
+              Search By City:
+                value: ''
+      responses:
+        '200':
+          description: ''
+    post:
+      tags:
+        - Hotel
+        - Hotel Management
+      summary: Create Hotel (Owner)
+      description: Create Hotel (Owner)
+      operationId: createHotelOwner
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                address:
+                  type: string
+                  example: 123 Main Street
+                city:
+                  type: string
+                  example: New York
+                images:
+                  type: array
+                  items:
+                    type: string
+                    example: https://example.com/hotel-image1.jpg
+                  example:
+                    - https://example.com/hotel-image1.jpg
+                    - https://example.com/hotel-image2.jpg
+                    - https://example.com/hotel-image3.jpg
+                latitude:
+                  type: number
+                  example: 40.7128
+                logo:
+                  type: string
+                  example: https://example.com/hotel-logo.jpg
+                longitude:
+                  type: number
+                  example: -74.006
+                name:
+                  type: string
+                  example: Grand Hotel
+                starRating:
+                  type: number
+                  example: 4
+            examples:
+              Create Hotel (Owner):
+                value:
+                  address: 123 Main Street
+                  city: New York
+                  images:
+                    - https://example.com/hotel-image1.jpg
+                    - https://example.com/hotel-image2.jpg
+                    - https://example.com/hotel-image3.jpg
+                  latitude: 40.7128
+                  logo: https://example.com/hotel-logo.jpg
+                  longitude: -74.006
+                  name: Grand Hotel
+                  starRating: 4
+      responses:
+        '200':
+          description: ''
+  /api/hotels/{hotel_id}:
+    get:
+      tags:
+        - Hotel
+        - Hotel Management
+      summary: Get Hotel by ID
+      description: Get Hotel by ID
+      operationId: getHotelById
+      responses:
+        '200':
+          description: ''
+    put:
+      tags:
+        - Hotel
+        - Hotel Management
+      summary: Update Hotel by ID (Owner Only)
+      description: Update Hotel by ID (Owner Only)
+      operationId: updateHotelByIdOwnerOnly
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                address:
+                  type: string
+                  example: 456 Broadway
+                city:
+                  type: string
+                  example: New York
+                images:
+                  type: array
+                  items:
+                    type: string
+                    example: https://example.com/updated-image1.jpg
+                  example:
+                    - https://example.com/updated-image1.jpg
+                    - https://example.com/updated-image2.jpg
+                latitude:
+                  type: number
+                  example: 40.7128
+                logo:
+                  type: string
+                  example: https://example.com/updated-logo.jpg
+                longitude:
+                  type: number
+                  example: -74.006
+                name:
+                  type: string
+                  example: Updated Grand Hotel
+                starRating:
+                  type: number
+                  example: 5
+            examples:
+              Update Hotel by ID (Owner Only):
+                value:
+                  address: 456 Broadway
+                  city: New York
+                  images:
+                    - https://example.com/updated-image1.jpg
+                    - https://example.com/updated-image2.jpg
+                  latitude: 40.7128
+                  logo: https://example.com/updated-logo.jpg
+                  longitude: -74.006
+                  name: Updated Grand Hotel
+                  starRating: 5
+      responses:
+        '200':
+          description: ''
+    delete:
+      tags:
+        - Hotel
+        - Hotel Management
+      summary: Delete Hotel by ID (Owner Only)
+      description: Delete Hotel by ID (Owner Only)
+      operationId: deleteHotelByIdOwnerOnly
+      requestBody:
+        content:
+          application/json:
+            examples:
+              Delete Hotel by ID (Owner Only):
+                value: ''
+      responses:
+        '200':
+          description: ''
+    parameters:
+      - name: hotel_id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/hotels/:
+    get:
+      tags:
+        - Hotel
+        - Hotel Management
+      summary: Get All Hotels
+      description: Get All Hotels
+      operationId: getAllHotels
+      requestBody:
+        content:
+          application/json:
+            examples:
+              Get All Hotels:
+                value: ''
+      responses:
+        '200':
+          description: ''
+  /api/hotels/{hotel_id}/roomTypes/{roomType_id}/rooms:
+    post:
+      tags:
+        - Hotel
+        - Hotel Room Management
+        - Rooms
+      summary: Add Rooms to RoomType
+      description: Add Rooms to RoomType
+      operationId: addRoomsToRoomtype
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roomCount:
+                  type: number
+                  example: 2
+            examples:
+              Add Rooms to RoomType:
+                value:
+                  roomCount: 2
+      responses:
+        '200':
+          description: ''
+    parameters:
+      - name: hotel_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: roomType_id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/hotels/{hotel_id}/roomTypes/{roomType_id}/availability:
+    get:
+      tags:
+        - Hotel
+        - Hotel Room Management
+        - Rooms
+      summary: Room Availibility
+      description: Room Availibility
+      operationId: roomAvailibility
+      parameters:
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            example: '2023-12-01'
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            example: '2023-12-05'
+        - name: status
+          in: query
+          schema:
+            type: string
+            example: available
+      responses:
+        '200':
+          description: ''
+    parameters:
+      - name: hotel_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: roomType_id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/hotels/{hotel_id}/roomTypes:
+    get:
+      tags:
+        - Hotel
+        - Hotel Room Management
+      summary: Get All Room Types
+      description: Get All Room Types
+      operationId: getAllRoomTypes
+      responses:
+        '200':
+          description: ''
+    post:
+      tags:
+        - Hotel
+        - Hotel Room Management
+      summary: Create RoomType
+      description: Create RoomType
+      operationId: createRoomtype
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amenities:
+                  type: array
+                  items:
+                    type: string
+                    example: Free WiFi
+                  example:
+                    - Free WiFi
+                    - Room Service
+                    - Mini Bar
+                images:
+                  type: array
+                  items:
+                    type: string
+                    example: https://example.com/room1.jpg
+                  example:
+                    - https://example.com/room1.jpg
+                    - https://example.com/room2.jpg
+                name:
+                  type: string
+                  example: Deluxe Suite
+                pricePerNight:
+                  type: number
+                  example: 150
+                totalRooms:
+                  type: number
+                  example: 5
+            examples:
+              Create RoomType:
+                value:
+                  amenities:
+                    - Free WiFi
+                    - Room Service
+                    - Mini Bar
+                  images:
+                    - https://example.com/room1.jpg
+                    - https://example.com/room2.jpg
+                  name: Deluxe Suite
+                  pricePerNight: 150
+                  totalRooms: 5
+      responses:
+        '200':
+          description: ''
+    parameters:
+      - name: hotel_id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/hotels/{hotel_id}/roomTypes/{roomType_id}:
+    get:
+      tags:
+        - Hotel
+        - Hotel Room Management
+      summary: Get Room Type by ID
+      description: Get Room Type by ID
+      operationId: getRoomTypeById
+      responses:
+        '200':
+          description: ''
+    put:
+      tags:
+        - Hotel
+        - Hotel Room Management
+      summary: Update RoomType by ID
+      description: Update RoomType by ID
+      operationId: updateRoomtypeById
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amenities:
+                  type: array
+                  items:
+                    type: string
+                    example: Wi-Fi
+                  example:
+                    - Wi-Fi
+                    - Air Conditioning
+                    - Mini Bar
+                    - Room Service
+                images:
+                  type: array
+                  items:
+                    type: string
+                    example: https://example.com/room1.jpg
+                  example:
+                    - https://example.com/room1.jpg
+                    - https://example.com/room2.jpg
+                name:
+                  type: string
+                  example: Updated Suite
+                pricePerNight:
+                  type: number
+                  example: 199.99
+                totalRooms:
+                  type: number
+                  example: 5
+            examples:
+              Update RoomType by ID:
+                value:
+                  amenities:
+                    - Wi-Fi
+                    - Air Conditioning
+                    - Mini Bar
+                    - Room Service
+                  images:
+                    - https://example.com/room1.jpg
+                    - https://example.com/room2.jpg
+                  name: Updated Suite
+                  pricePerNight: 199.99
+                  totalRooms: 5
+      responses:
+        '200':
+          description: ''
+    delete:
+      tags:
+        - Hotel
+        - Hotel Room Management
+      summary: Delete Room Type by ID
+      description: Delete Room Type by ID
+      operationId: deleteRoomTypeById
+      requestBody:
+        content:
+          application/json:
+            examples:
+              Delete Room Type by ID:
+                value: ''
+      responses:
+        '200':
+          description: ''
+    parameters:
+      - name: hotel_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: roomType_id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/checkout/:
+    post:
+      tags:
+        - Booking
+        - Checkout
+      summary: Checkout Booking
+      description: Checkout Booking
+      operationId: checkoutBooking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bookingId:
+                  type: string
+                  example: '{{booking_id}}'
+                cardNumber:
+                  type: string
+                  example: '4532015112830366'
+                cardholderName:
+                  type: string
+                  example: John Doe
+                cvv:
+                  type: string
+                  example: '123'
+                expiryDate:
+                  type: string
+                  example: 12/26
+            examples:
+              Checkout Booking:
+                value:
+                  bookingId: '{{booking_id}}'
+                  cardNumber: '4532015112830366'
+                  cardholderName: John Doe
+                  cvv: '123'
+                  expiryDate: 12/26
+      responses:
+        '200':
+          description: ''
+  /api/bookings:
+    post:
+      tags:
+        - Booking
+      summary: 1. User books flight only
+      description: 1. User books flight only
+      operationId: 1UserBooksFlightOnly
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                flightBooking:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      afsFlightId:
+                        type: string
+                        example: FL123
+                      arrivalTime:
+                        type: string
+                        example: '2024-03-20T12:00:00Z'
+                      departureTime:
+                        type: string
+                        example: '2024-03-20T10:00:00Z'
+                      destination:
+                        type: string
+                        example: Paris
+                      price:
+                        type: number
+                        example: 200
+                      source:
+                        type: string
+                        example: London
+                  example:
+                    - afsFlightId: FL123
+                      arrivalTime: '2024-03-20T12:00:00Z'
+                      departureTime: '2024-03-20T10:00:00Z'
+                      destination: Paris
+                      price: 200
+                      source: London
+                    - afsFlightId: FL124
+                      arrivalTime: '2024-03-25T16:00:00Z'
+                      departureTime: '2024-03-25T14:00:00Z'
+                      destination: London
+                      price: 200
+                      source: Paris
+                hotelBooking:
+                  type: object
+                  properties:
+                    checkInDate:
+                      type: string
+                      example: '2024-03-20'
+                    checkOutDate:
+                      type: string
+                      example: '2024-03-25'
+                    hotelId:
+                      type: string
+                      example: '{{hotel_id}}'
+                    price:
+                      type: number
+                      example: 500
+                    roomTypeId:
+                      type: string
+                      example: '{{roomType_id}}'
+                    roomsRequested:
+                      type: number
+                      example: 1
+                totalPrice:
+                  type: number
+                  example: 900
+            examples:
+              1. User books flight only:
+                value:
+                  flightBooking:
+                    afsFlightId: FL123
+                    arrivalTime: '2024-03-20T12:00:00Z'
+                    departureTime: '2024-03-20T10:00:00Z'
+                    destination: Paris
+                    price: 200
+                    source: London
+                  totalPrice: 200
+              2. User books hotel only:
+                value:
+                  hotelBooking:
+                    checkInDate: '2025-08-23'
+                    checkOutDate: '2025-08-27'
+                    hotelId: '{{hotel_id}}'
+                    price: 150
+                    roomTypeId: '{{roomType_id}}'
+                    roomsRequested: 1
+                  totalPrice: 750
+              3. Let's book both:
+                value:
+                  flightBooking:
+                    - afsFlightId: FL123
+                      arrivalTime: '2024-03-20T12:00:00Z'
+                      departureTime: '2024-03-20T10:00:00Z'
+                      destination: Paris
+                      price: 200
+                      source: London
+                    - afsFlightId: FL124
+                      arrivalTime: '2024-03-25T16:00:00Z'
+                      departureTime: '2024-03-25T14:00:00Z'
+                      destination: London
+                      price: 200
+                      source: Paris
+                  hotelBooking:
+                    checkInDate: '2024-03-20'
+                    checkOutDate: '2024-03-25'
+                    hotelId: '{{hotel_id}}'
+                    price: 500
+                    roomTypeId: '{{roomType_id}}'
+                    roomsRequested: 1
+                  totalPrice: 900
+      responses:
+        '200':
+          description: ''
+  /api/bookings/:
+    get:
+      tags:
+        - Booking
+      summary: Show All Bookings
+      description: Show All Bookings
+      operationId: showAllBookings
+      responses:
+        '200':
+          description: ''
+  /api/bookings/{booking_id}/cancel:
+    post:
+      tags:
+        - Booking
+      summary: User Cancel Entire Booking
+      description: User Cancel Entire Booking
+      operationId: userCancelEntireBooking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+            examples:
+              Hotel Owner Cancel Booking:
+                value: {}
+              User Cancel Entire Booking:
+                value: {}
+              User Cancel Flights:
+                value:
+                  cancelFlightsOnly: true
+              User Cancel Hotels:
+                value:
+                  cancelHotelsOnly: true
+      responses:
+        '200':
+          description: ''
+    parameters:
+      - name: booking_id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/reservations:
+    get:
+      tags:
+        - Booking
+      summary: Hotel Owner Get All Reservations
+      description: Hotel Owner Get All Reservations
+      operationId: hotelOwnerGetAllReservations
+      responses:
+        '200':
+          description: ''
+  /api/notifications:
+    get:
+      tags:
+        - Notification
+      summary: Get All Notifications User
+      description: Get All Notifications User
+      operationId: getAllNotificationsUser
+      parameters:
+        - name: ''
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+  /api/notifications/unread:
+    get:
+      tags:
+        - Notification
+      summary: Fetch Unread
+      description: Fetch Unread
+      operationId: fetchUnread
+      responses:
+        '200':
+          description: ''
+  /api/notifications/413d4044-0b88-4c8f-9b84-aed772384f26:
+    put:
+      tags:
+        - Notification
+      summary: Mark specific as read
+      description: Mark specific as read
+      operationId: markSpecificAsRead
+      responses:
+        '200':
+          description: ''
+tags:
+  - name: Flights
+  - name: Authentication
+  - name: User
+  - name: Hotel
+  - name: Hotel Management
+  - name: Hotel Search
+  - name: Hotel Room Management
+  - name: Rooms
+  - name: Booking
+  - name: Checkout
+  - name: Notification
