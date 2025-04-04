@@ -355,7 +355,13 @@ export default function FlightSearch() {
           (sum: number, f: any) => sum + f.price,
           0
         );
-        bookingData.flightBooking = flightBooking[0];
+        bookingData.flightBooking = flightBooking;
+
+        console.log(
+          `Booking flight from ${flightBooking[0].source} to ${
+            flightBooking[flightBooking.length - 1].destination
+          } with ${flightBooking.length} leg(s)`
+        );
       } else {
         const outboundFlight = selectedOutbound.flights.map((flight: any) => ({
           afsFlightId: flight.id,
@@ -381,6 +387,14 @@ export default function FlightSearch() {
           0
         );
         bookingData.flightBooking = allFlights;
+
+        console.log(
+          `Booking round trip from ${outboundFlight[0].source} to ${
+            outboundFlight[outboundFlight.length - 1].destination
+          } with ${outboundFlight.length} outbound leg(s) and ${
+            returnFlight.length
+          } return leg(s)`
+        );
       }
 
       const booking = await addToCart(bookingData);
