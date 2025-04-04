@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { hotelAPI } from "@/app/services/api"
 import { useAuth } from "@/app/components/auth/auth-context"
 import { useBooking } from "@/app/components/booking/booking-context"
+import { bookingAPI } from "@/app/services/api"
 import { Star } from "lucide-react"
 import Image from "next/image"
 import {
@@ -60,7 +61,10 @@ export default function HotelSearchResults() {
           city: searchParams.get('city') || '',
           checkIn: searchParams.get('checkIn') || '',
           checkOut: searchParams.get('checkOut') || '',
-          guests: searchParams.get('guests') || ''
+          guests: searchParams.get('guests') || '',
+          minPrice: searchParams.get('minPrice') || '',
+          maxPrice: searchParams.get('maxPrice') || '',
+          minStarRating: searchParams.get('minStarRating') || '',
         }
 
         const results = await hotelAPI.getHotels(params)
@@ -122,82 +126,79 @@ export default function HotelSearchResults() {
   }, [isAuthenticated, hotels])
 
   const handleConfirmBooking = async (roomTypeId: string) => {
-    if (!selectedHotel) return
-
-    if (!isAuthenticated) {
-      toast({
-        title: "Login Required",
-        description: "Please login to book a hotel",
-        variant: "destructive",
-      })
-      router.push(`/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`)
-      return
-    }
-
+    if (!selectedHotel || !searchParams.get('checkIn') || !searchParams.get('checkOut')) return
+  
     try {
       setIsBooking(true)
-      
-      const bookingData = {
-        hotelId: selectedHotel.id,
-        checkIn: searchParams.get('checkIn')!,
-        checkOut: searchParams.get('checkOut')!,
-        guests: Number(searchParams.get('guests')),
-        roomTypeId: roomTypeId,
-      }
-
+  
       // Find the selected room type details
       const selectedRoom = selectedHotel.roomTypes.find(room => room.id === roomTypeId)
-      
       if (!selectedRoom) {
         throw new Error("Selected room type not found")
       }
-
-      // Create a new booking (this should be done in your backend)
-      const newBooking = await createBooking({
-        userId: userId,
-        totalPrice: selectedRoom.pricePerNight,
-        status: "PENDING", // Set the booking status to PENDING
-      });
-
+  
+      // Create booking with proper hotelBooking structure
+      const newBooking = await bookingAPI.createBooking({
+        hotelBooking: {
+          hotelId: selectedHotel.id,
+          roomTypeId: selectedRoom.id,
+          checkInDate: searchParams.get('checkIn')!,
+          checkOutDate: searchParams.get('checkOut')!,
+          roomsRequested: Number(searchParams.get('guests')),
+          price: selectedRoom.pricePerNight
+        },
+        totalPrice: selectedRoom.pricePerNight
+      })
+      console.log(newBooking,newBooking.unavailableDates)
+      if (newBooking.unavailableDates) {
+        toast({
+          title: "Room Type Full",
+          description: "This room type is full for the selected dates. Please choose another room or date.",
+          variant: "destructive",
+        })
+        return
+      }
+  
       // Add the reservation with status PENDING
       await addToCart({
-        id: `${newBooking.id}-${roomTypeId}`, // Unique ID for the cart item
+        id: `${newBooking.id}-${roomTypeId}`,
         type: "hotel",
         totalPrice: selectedRoom.pricePerNight, // Set total price based on room type
         reservations: [{
           id: selectedRoom.id,
           roomType: {
-            hotel: {
-              name: selectedHotel.name,
-            },
+            hotel: { name: selectedHotel.name },
             name: selectedRoom.name,
           },
-          checkInDate: bookingData.checkIn,
-          checkOutDate: bookingData.checkOut,
-          roomsBooked: bookingData.guests, // Assuming guests represent rooms booked
-          status: "PENDING", // Set the reservation status to PENDING
-          bookingId: newBooking.id, // Link the reservation to the new booking
+          checkInDate: searchParams.get('checkIn')!,
+          checkOutDate: searchParams.get('checkOut')!,
+          roomsBooked: Number(searchParams.get('guests')),
+          status: "PENDING",
+          bookingId: newBooking.id,
         }],
       })
-
+  
       toast({
         title: "Success",
         description: "Hotel has been added to your cart",
       })
-
+  
       setIsDialogOpen(false)
       router.push('/cart')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error booking hotel:', error)
+  
       toast({
         title: "Error",
-        description: "Failed to add hotel to cart. Please try again.",
+        description: error.message || "Failed to add hotel to cart. Please try again.",
         variant: "destructive",
       })
     } finally {
       setIsBooking(false)
     }
   }
+  
+  
 
   if (isLoading) {
     return (
@@ -238,6 +239,11 @@ export default function HotelSearchResults() {
             </div>
             <CardHeader>
               <CardTitle>{hotel.name}</CardTitle>
+              <div className="flex items-center space-x-1 mt-1">
+                {[...Array(Number(hotel.starRating) || 0)].map((_, i) => (
+                  <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                ))}
+              </div>
               <p className="text-sm text-muted-foreground">{hotel.address}</p>
             </CardHeader>
             <CardContent>

@@ -13,10 +13,20 @@ export async function GET(req: NextRequest) {
     const maxStarRating = url.searchParams.get("maxStarRating");
     const minPrice = url.searchParams.get("minPrice");
     const maxPrice = url.searchParams.get("maxPrice");
+    const guests = url.searchParams.get("guests");
 
     // Build filter object
     const filters: any = {};
-
+    console.log(guests)
+    if (guests) {
+      filters.roomTypes = {
+        some: {
+          totalRooms: {
+            gte: Number(guests),
+          },
+        },
+      };
+    }
     if (city) {
       filters.city = city;
     }
@@ -34,16 +44,19 @@ export async function GET(req: NextRequest) {
       };
     }
 
+    // Handle price range filter (pricePerNight)
     if (minPrice || maxPrice) {
-      filters.roomTypes = {
-        some: {
-          pricePerNight: {
-            gte: minPrice ? Number(minPrice) : undefined,
-            lte: maxPrice ? Number(maxPrice) : undefined,
-          },
+      // If filters.roomTypes is already defined (for guests), we merge the price filter with it
+      filters.roomTypes = filters.roomTypes || {};
+      filters.roomTypes.some = {
+        ...filters.roomTypes.some,
+        pricePerNight: {
+          gte: minPrice ? Number(minPrice) : undefined,
+          lte: maxPrice ? Number(maxPrice) : undefined,
         },
       };
     }
+
 
     // Fetch hotels based on filters
     const hotels = await prisma.hotel.findMany({

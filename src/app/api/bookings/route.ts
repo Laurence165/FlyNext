@@ -91,9 +91,9 @@ export async function POST(req: NextRequest) {
 
       if (!availability.available) {
         return NextResponse.json({
-          error: "Rooms not available for selected dates",
+          error: "Room type is full for the selected dates. Please choose another room or date.",
           unavailableDates: availability.unavailableDates
-        }, { status: 400 });
+        }, { status: 200 });
       }
       
       // Calculate hotel price

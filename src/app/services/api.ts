@@ -13,8 +13,7 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
   }
 
   const url = `${API_BASE_URL}${endpoint}`
-  if (token!==null)
-    console.log("token exist")
+  if (token !== null) console.log("token exist")
 
   try {
     const response = await fetch(url, {
@@ -34,10 +33,11 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
       throw new Error("Unauthorized access. Please log in again.")
     }
 
-    // Handle 403 Unauthorized
+    // Handle 401 Unauthorized
     if (response.status === 401) {
       return {} as T
     }
+
     // Check if the response is JSON
     const contentType = response.headers.get("content-type")
     const isJson = contentType && contentType.includes("application/json")
@@ -51,6 +51,12 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
 
       // Handle JSON error responses
       const error = await response.json()
+      
+      // Specific room type full error handling
+      if (error.message && error.message.includes("room type is full")) {
+        throw new Error("This room type is full for the selected dates. Please choose another room or date.")
+      }
+
       throw new Error(error.message || `API Error: ${response.status} ${response.statusText}`)
     }
 
@@ -74,6 +80,7 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
     throw error
   }
 }
+
 
 // Auth API
 export const authAPI = {
@@ -132,7 +139,15 @@ export const bookingAPI = {
       destination: string
       price: number
     }[]
-    hotelBooking?: any
+    hotelBooking?: {
+      hotelId: string,
+      roomTypeId: string,
+      checkInDate: string
+      checkOutDate: string
+      roomsRequested: number
+      price: number
+  
+    }
     totalPrice: number
   }) => {
     console.log("Creating booking with data:", bookingData);
@@ -156,18 +171,19 @@ export const hotelAPI = {
     minStarRating?: number;
     checkIn?: string;
     checkOut?: string;
-    minPrice?: number;
-    maxPrice?: number;
+    minPrice?: string;
+    maxPrice?: string;
   }) => {
     const queryParams = new URLSearchParams();
-    
+    console.log("MIN PRICE" + filters.minPrice)
+
     if (filters.city) queryParams.append('city', filters.city);
     if (filters.minStarRating) queryParams.append('minStarRating', filters.minStarRating.toString());
     if (filters.checkIn) queryParams.append('checkIn', filters.checkIn);
     if (filters.checkOut) queryParams.append('checkOut', filters.checkOut);
     if (filters.minPrice) queryParams.append('minPrice', filters.minPrice.toString());
     if (filters.maxPrice) queryParams.append('maxPrice', filters.maxPrice.toString());
-
+    console.log(queryParams)
     return fetchAPI(`/hotels?${queryParams.toString()}`);
   },
 

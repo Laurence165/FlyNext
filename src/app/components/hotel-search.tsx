@@ -53,28 +53,29 @@ export default function HotelSearch() {
     try {
       setIsLoading(true)
       
-      const searchParams = {
+      const searchParams: Record<string, string> = {
         city: selectedCity.name,
-        checkIn: format(checkIn, 'yyyy-MM-dd'),
-        checkOut: format(checkOut, 'yyyy-MM-dd'),
-        guests: guests.toString(),
-        minStarRating: minStarRating,
-        minPrice: minPrice,
-        maxPrice: maxPrice
-      }
-
-      const hotels = await hotelAPI.getHotels(searchParams)
-      sessionStorage.setItem('hotelSearchResults', JSON.stringify(hotels))
-      
-      const urlParams = new URLSearchParams({
-        ...searchParams,
         cityId: selectedCity.id,
         country: selectedCity.country,
-        minStarRating: minStarRating.toString(),
-        minPrice: minPrice.toString(),
-        maxPrice: maxPrice.toString()
-      } as Record<string, string>)
+        checkIn: format(checkIn!, 'yyyy-MM-dd'),
+        checkOut: format(checkOut!, 'yyyy-MM-dd'),
+        guests: guests.toString()
+      }
+
+      // Add all price and rating params, converting to strings
+      if (minPrice >= 0){searchParams.minPrice = minPrice.toString()}
       
+      if (maxPrice > 0){searchParams.maxPrice = maxPrice.toString()}
+      if (minStarRating > 0) {
+        searchParams.minStarRating = minStarRating.toString()
+      }
+
+      console.log('Search params:', searchParams)
+
+      //const hotels = await hotelAPI.getHotels(searchParams)
+      //sessionStorage.setItem('hotelSearchResults', JSON.stringify(hotels))
+      
+      const urlParams = new URLSearchParams(searchParams)
       router.push(`/hotels/search?${urlParams.toString()}`)
     } catch (error) {
       console.error('Error searching hotels:', error)
