@@ -10,7 +10,7 @@ export async function GET(
   { params }: { params: { hotelId: string; roomTypeId: string } }
 ) {
   try {
-    const { hotelId, roomTypeId } = params;
+    const { hotelId, roomTypeId } = await params;
 
     const roomType = await prisma.roomType.findFirst({
       where: { 

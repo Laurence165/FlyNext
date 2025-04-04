@@ -245,7 +245,7 @@ export async function GET(req: NextRequest) {
     const status = url.searchParams.get('status');
     const includeFlights = url.searchParams.get('includeFlights') !== 'false';
     const includeHotels = url.searchParams.get('includeHotels') !== 'false';
-
+    
     // Build the where clause for filter
     const where: any = { userId: user.id };
     

@@ -68,6 +68,9 @@ export async function GET(req: NextRequest) {
             id: true,
             name: true,
             pricePerNight: true,
+            images: true,
+            amenities: true,
+            totalRooms: true
           },
         },
       },

@@ -19,21 +19,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
+import { ImageIcon } from "lucide-react"
 
 interface Hotel {
   id: string
   name: string
   description: string
   city: string
-  starRating?: string
+  starRating?: number
   logo?: string
   address: string
   roomTypes: {
     id: string
     name: string
-    totalRooms: String
+    totalRooms: number
     pricePerNight: number
-    //maxGuests: number
+    amenities: { amenity: string }[]
+    images: string[]
   }[]
 }
 
@@ -41,7 +44,7 @@ export default function HotelSearchResults() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { toast } = useToast()
-  const { isAuthenticated, userId } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const { addToCart } = useBooking()
   const [hotels, setHotels] = useState<Hotel[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -64,11 +67,11 @@ export default function HotelSearchResults() {
           guests: searchParams.get('guests') || '',
           minPrice: searchParams.get('minPrice') || '',
           maxPrice: searchParams.get('maxPrice') || '',
-          minStarRating: searchParams.get('minStarRating') || '',
+          minStarRating: Number(searchParams.get('minStarRating')) || undefined,
         }
 
         const results = await hotelAPI.getHotels(params)
-        setHotels(results)
+        setHotels(results as Hotel[])
       } catch (err) {
         console.error('Error fetching hotels:', err)
         setError('Failed to load hotels. Please try again.')
@@ -81,6 +84,15 @@ export default function HotelSearchResults() {
   }, [searchParams])
 
   const handleBookNow = (hotel: Hotel) => {
+    console.log('Selected Hotel Data:', {
+      hotel,
+      roomTypes: hotel.roomTypes.map(room => ({
+        ...room,
+        amenities: room.amenities,
+        images: room.images
+      }))
+    })
+
     if (!isAuthenticated) {
       // Store booking intent in session storage
       sessionStorage.setItem('bookingIntent', JSON.stringify({
@@ -270,29 +282,65 @@ export default function HotelSearchResults() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        {console.log('Dialog Render - Selected Hotel:', selectedHotel)}
+        {console.log('Room Types:', selectedHotel?.roomTypes)}
+        <DialogContent className="sm:max-w-[800px]">
           <DialogHeader>
             <DialogTitle>Select Room Type</DialogTitle>
             <DialogDescription>
               Choose a room type for your stay at {selectedHotel?.name}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-6 py-4">
             {selectedHotel?.roomTypes.map((room) => (
               <div
                 key={room.id}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent cursor-pointer"
+                className="space-y-4 p-4 border rounded-lg hover:bg-accent cursor-pointer"
                 onClick={() => handleConfirmBooking(room.id)}
               >
-                <div>
-                  <p className="font-medium">{room.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Up to {room.totalRooms} guests
-                  </p>
+                {/* Room Images */}
+                <div className="grid grid-cols-4 gap-2">
+                  {room.images && room.images.length > 0 ? (
+                    room.images.map((image, index) => (
+                      <div key={index} className="relative aspect-square rounded-md overflow-hidden">
+                        <Image
+                          src={image.imageUrl}
+                          alt={`${room.name} - Image ${index + 1}`}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-4 aspect-video bg-muted flex items-center justify-center rounded-lg">
+                      <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                    </div>
+                  )}
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold">${room.pricePerNight}</p>
-                  <p className="text-sm text-muted-foreground">per night</p>
+
+                {/* Room Details */}
+                <div className="flex justify-between items-start">
+                  <div className="space-y-2">
+                    <h3 className="font-medium text-lg">{room.name}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Up to {room.totalRooms} rooms
+                    </p>
+                    
+                    {/* Amenities */}
+                    {room.amenities && room.amenities.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {room.amenities.map((amenity, index) => (
+                          <Badge key={index} variant="secondary">
+                            {amenity.amenity}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-lg">${room.pricePerNight}</p>
+                    <p className="text-sm text-muted-foreground">per night</p>
+                  </div>
                 </div>
               </div>
             ))}

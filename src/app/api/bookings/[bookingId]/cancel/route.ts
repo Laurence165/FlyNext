@@ -14,7 +14,7 @@ export async function POST(
     const user = await authenticateToken(req);
     if (user instanceof Response) return user;
 
-    const bookingId = params.bookingId;
+    const bookingId = await params.bookingId;
     
     // Get optional parameters from request body
     const { cancelHotelsOnly, cancelFlightsOnly } = await req.json().catch(() => ({}));

@@ -3,20 +3,61 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLI
 import axios from "axios"
 
 import { Hotel, AddRoomType } from "@/types"
+
+let isRefreshing = false
+let failedQueue: { resolve: (token: string) => void; reject: (error: any) => void }[] = []
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error)
+    } else {
+      prom.resolve(token!)
+    }
+  })
+  failedQueue = []
+}
+
+async function refreshToken() {
+  try {
+    const refreshToken = localStorage.getItem('refreshToken')
+    if (!refreshToken) throw new Error('No refresh token available')
+
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refreshToken }),
+    })
+
+    if (!response.ok) throw new Error('Token refresh failed')
+
+    const data = await response.json()
+    localStorage.setItem('token', data.accessToken)
+    if (data.refreshToken) {
+      localStorage.setItem('refreshToken', data.refreshToken)
+    }
+    return data.accessToken
+  } catch (error) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('refreshToken')
+    window.location.href = '/login'
+    throw error
+  }
+}
+
 // Generic fetch function with improved error handling
 async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  let token = typeof window !== "undefined" ? localStorage.getItem("token") : null
 
-  const defaultHeaders = {
-    "Content-Type": "application/json",
-    ...(token && { Authorization: `Bearer ${token}` }),
-  }
+  const executeRequest = async (accessToken: string | null) => {
+    const defaultHeaders = {
+      "Content-Type": "application/json",
+      ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+    }
 
-  const url = `${API_BASE_URL}${endpoint}`
-  if (token !== null) console.log("token exist")
-
-  try {
-    const response = await fetch(url, {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers: {
         ...defaultHeaders,
@@ -24,61 +65,47 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
       },
     })
 
-    // Handle 403 Unauthorized
-    if (response.status === 403) {
-      // Clear the token
-      localStorage.removeItem("token")
-      // Redirect to login
-      window.location.href = "/login"
-      throw new Error("Unauthorized access. Please log in again.")
-    }
-
     // Handle 401 Unauthorized
     if (response.status === 401) {
-      return {} as T
+      if (!isRefreshing) {
+        isRefreshing = true
+        try {
+          const newToken = await refreshToken()
+          isRefreshing = false
+          processQueue(null, newToken)
+          // Retry the original request with new token
+          return executeRequest(newToken)
+        } catch (error) {
+          processQueue(error, null)
+          throw error
+        }
+      } else {
+        // Wait for the refresh to complete
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject })
+        }).then(() => {
+          return executeRequest(localStorage.getItem('token'))
+        })
+      }
     }
 
-    // Check if the response is JSON
-    const contentType = response.headers.get("content-type")
-    const isJson = contentType && contentType.includes("application/json")
-
+    // Handle other responses
     if (!response.ok) {
-      // Handle non-JSON responses
+      const contentType = response.headers.get("content-type")
+      const isJson = contentType && contentType.includes("application/json")
+
       if (!isJson) {
-        console.error(`API Error: Non-JSON response from ${url}`)
         throw new Error(`API Error: Endpoint ${endpoint} returned non-JSON response`)
       }
 
-      // Handle JSON error responses
       const error = await response.json()
-      
-      // Specific room type full error handling
-      if (error.message && error.message.includes("room type is full")) {
-        throw new Error("This room type is full for the selected dates. Please choose another room or date.")
-      }
-
       throw new Error(error.message || `API Error: ${response.status} ${response.statusText}`)
     }
 
-    // For endpoints that return no content
-    if (response.status === 204) {
-      return {} as T
-    }
-
-    // Handle non-JSON successful responses
-    if (!isJson) {
-      console.warn(`API Warning: Expected JSON but got non-JSON response from ${url}`)
-      return {} as T
-    }
-
-    return await response.json()
-  } catch (error) {
-    // Enhance error with endpoint information
-    if (error instanceof Error) {
-      error.message = `API Error (${endpoint}): ${error.message}`
-    }
-    throw error
+    return response.json()
   }
+
+  return executeRequest(token)
 }
 
 
@@ -127,6 +154,7 @@ export const bookingAPI = {
     
     return response.json();
   },
+  getHotelBookings: () => fetchAPI<any>("/bookings/getHotelBookings"),
 
   getBookingById: (id: string) => fetchAPI<any>(`/bookings/${id}`),
 
