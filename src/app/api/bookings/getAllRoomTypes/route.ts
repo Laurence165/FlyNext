@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/utils/db"; 
+import { prisma } from "@/utils/db";
 import { authenticateToken } from "@/app/api/middleware";
 
 export async function GET(req: NextRequest) {
@@ -10,21 +10,21 @@ export async function GET(req: NextRequest) {
 
     // Get date from query params, default to today
     const searchParams = req.nextUrl.searchParams;
-    const date = searchParams.get('date') 
-      ? new Date(searchParams.get('date')!) 
+    const date = searchParams.get("date")
+      ? new Date(searchParams.get("date")!)
       : new Date();
 
     // Set start and end of the specified date
     const startDate = new Date(date);
     startDate.setHours(0, 0, 0, 0);
-    
+
     const endDate = new Date(date);
     endDate.setHours(23, 59, 59, 999);
 
     // Get all hotels owned by the user with their room types
     const hotels = await prisma.hotel.findMany({
       where: {
-        ownerId: user.id
+        ownerId: user.id,
       },
       select: {
         id: true,
@@ -38,51 +38,51 @@ export async function GET(req: NextRequest) {
             totalRooms: true,
             amenities: {
               select: {
-                amenity: true
-              }
+                amenity: true,
+              },
             },
             images: {
               select: {
-                imageUrl: true
-              }
+                imageUrl: true,
+              },
             },
             // Get room availability for specified date
             roomAvailability: {
               where: {
                 date: {
                   gte: startDate,
-                  lte: endDate
-                }
+                  lte: endDate,
+                },
               },
               select: {
                 availableRooms: true,
-                date: true
-              }
+                date: true,
+              },
             },
             // Get active reservations for the date
             reservations: {
               where: {
-                status: 'CONFIRMED',
+                status: "CONFIRMED",
                 checkInDate: { lte: endDate },
-                checkOutDate: { gte: startDate }
+                checkOutDate: { gte: startDate },
               },
               select: {
                 roomsBooked: true,
                 checkInDate: true,
-                checkOutDate: true
-              }
-            }
-          }
-        }
-      }
+                checkOutDate: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     // Transform the data to group room types by hotel
-    const hotelRoomTypes = hotels.map(hotel => ({
+    const hotelRoomTypes = hotels.map((hotel) => ({
       id: hotel.id,
       name: hotel.name,
       logo: hotel.logo,
-      roomTypes: hotel.roomTypes.map(room => ({
+      roomTypes: hotel.roomTypes.map((room) => ({
         id: room.id,
         name: room.name,
         pricePerNight: room.pricePerNight,
@@ -90,14 +90,13 @@ export async function GET(req: NextRequest) {
         amenities: room.amenities,
         images: room.images,
         // Calculate available rooms considering both roomAvailability and active reservations
-        availableRooms: room.totalRooms-room.roomAvailability.length
-        //  availableRooms: room.roomAvailability[0]?.availableRooms ?? 
+        availableRooms: room.totalRooms - room.roomAvailability.length,
+        //  availableRooms: room.roomAvailability[0]?.availableRooms ??
         //   (room.totalRooms - room.reservations.reduce((acc, res) => acc + res.roomsBooked, 0))
-      }))
+      })),
     }));
 
     return NextResponse.json(hotelRoomTypes);
-
   } catch (error) {
     console.error("Error fetching room types:", error);
     return NextResponse.json(
