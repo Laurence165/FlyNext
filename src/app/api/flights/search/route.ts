@@ -14,17 +14,34 @@ export async function GET(request) {
     }
   
     try {
-      const afsUrl = new URL('https://advanced-flights-system.replit.app/api/flights');
+      const afsBaseUrl = process.env.AFS_BASE_URL;
+      if (!afsBaseUrl) {
+        throw new Error("AFS_BASE_URL is not defined in the environment variables.");
+      }
+      
+      // Construct the full URL with /api/flights
+      const afsUrl = new URL(`${afsBaseUrl}/api/flights`);
       afsUrl.searchParams.append('origin', origin);
       afsUrl.searchParams.append('destination', destination);
       afsUrl.searchParams.append('date', date);
-      console.log(afsUrl);
+      console.log("AFS URL:", afsUrl.toString());
+  
+      const afsApiKey = process.env.AFS_API_KEY;
+      if (!afsApiKey) {
+        throw new Error("AFS_API_KEY is not defined in the environment variables.");
+      }
   
       const afsResponse = await fetch(afsUrl, {
         headers: {
-          'x-api-key': process.env.AFS_API_KEY,
+          'x-api-key': afsApiKey,
         },
       });
+  
+      if (!afsResponse.ok) {
+        const errorText = await afsResponse.text(); // Get the response as text
+        console.error("AFS API Error:", errorText); // Log the error response
+        throw new Error(`AFS API Error: ${afsResponse.status} ${errorText}`);
+      }
   
       const data = await afsResponse.json();
       console.log(data);
@@ -36,6 +53,7 @@ export async function GET(request) {
         }
       });
     } catch (error) {
+      console.error("Error processing flight search:", error);
       return NextResponse.json({ error: 'Internal Server Error' }, {
         status: 500
       });
