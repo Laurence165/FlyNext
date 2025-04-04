@@ -32,39 +32,102 @@ export default function CheckoutForm() {
   const { cart, clearCart } = useBooking()
   const [isProcessing, setIsProcessing] = useState(false)
 
-  const form = useForm<FormData>({
+  const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+    defaultValues: {
+      cardholderName: "",
+      cardNumber: "",
+      expiryDate: "",
+      cvv: ""
+    }
   })
 
-  const onSubmit = async (values: FormData) => {
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       setIsProcessing(true)
-      const response = await checkoutAPI.processPayment({
-        bookingId: "test-booking-id", // Replace with actual booking ID
-        ...values
-      })
-
-      console.log("Response 👉", response);
-      console.log("Booking ID 👉", response.booking?.id);
-      console.log("Success 👉", response.success);
+      console.log("Starting checkout process...");
       
-      if (response.success) {
+      // Get the booking ID from the cart
+      if (!cart || cart.length === 0) {
+        console.log("Cart is empty:", cart);
+        toast({
+          title: "Error",
+          description: "No items in cart",
+          variant: "destructive",
+        })
+        return
+      }
+      
+      console.log("Cart contents:", cart);
+      
+      // Assuming the booking ID is stored in the cart items
+      const bookingId = cart[0].bookingId;
+      console.log("Extracted bookingId:", bookingId);
+      
+      if (!bookingId) {
+        toast({
+          title: "Error",
+          description: "Invalid booking information",
+          variant: "destructive",
+        })
+        return
+      }
+      
+      // Log the request payload
+      const payload = {
+        bookingId,
+        ...values
+      };
+      console.log("Sending payload to API:", payload);
+      
+      // Make a direct fetch call to the API endpoint
+      console.log("Fetching /api/checkout...");
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      
+      console.log("API response status:", response.status);
+      
+      // Try to parse the response regardless of status code
+      let responseData;
+      try {
+        responseData = await response.json();
+        console.log("API response data:", responseData);
+      } catch (parseError) {
+        console.error("Failed to parse response:", parseError);
+        responseData = null;
+      }
+      
+      if (!response.ok) {
+        throw new Error(responseData?.error || `Request failed with status ${response.status}`);
+      }
+      
+      if (responseData?.success) {
+        console.log("Payment successful, clearing cart and redirecting...");
         toast({
           title: "Payment Successful",
-          description: "Your booking has been confirmed",
+          description: "Your booking has been confirmed. You can now view and print your invoice.",
         })
         clearCart()
-        router.push(`/bookings/${response.booking.id}`)
+        
+        // Force a hard navigation to ensure the page refreshes
+        window.location.href = "/bookings";
+      } else {
+        throw new Error("API returned success: false or undefined");
       }
     } catch (error) {
-      console.error('Payment error:', error)
+      console.error('Payment error:', error);
       toast({
         title: "Payment Failed",
-        description: "Failed to process payment",
+        description: error instanceof Error ? error.message : "Failed to process payment",
         variant: "destructive",
       })
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
     }
   }
 
