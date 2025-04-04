@@ -33,8 +33,6 @@ export default function EditHotel() {
     logo: '',
     address: '',
     city: '',
-    latitude: 0,
-    longitude: 0,
     starRating: 0,
     images: [] as string[],
   })
@@ -67,8 +65,6 @@ export default function EditHotel() {
           logo: data.logo,
           address: data.address,
           city: data.city,
-          latitude: data.latitude,
-          longitude: data.longitude,
           starRating: data.starRating,
           images: data.images.map((img: any) => img.url),
         })
@@ -156,65 +152,88 @@ export default function EditHotel() {
     setImages((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const handleRoomTypeChange = async (index: number, field: keyof AddRoomType, value: string | number) => {
+  const handleRoomTypeChange = (index: number, field: keyof AddRoomType, value: string | number) => {
+    setRoomTypes(prev => {
+      const updated = [...prev]
+      updated[index] = {
+        ...updated[index],
+        [field]: value,
+      }
+      return updated
+    })
+  }
+
+  const saveRoomTypeChanges = async (index: number) => {
     if (!id) return
-
-    const updatedRoomType = {
-      ...roomTypes[index],
-      [field]: value
+  
+    const roomType = roomTypes[index]
+    const normalizedRoomType = {
+      ...roomType,
+      amenities: roomType.amenities.map(a => typeof a === 'string' ? a : a.amenity),
+      images: roomType.images.map(image => typeof image === 'object' ? image.imageUrl : image),  // Normalize image URLs
     }
-
     try {
-      // Get the room type ID from the API response when adding/editing
-      const roomTypeId = (roomTypes[index] as any).id // Type assertion to access id
-      const response = await hotelAPI.editRoomTypesByID(id!, roomTypeId, updatedRoomType)
+      let response
+  
+      if (roomType.id) {
+        // Edit existing room type
+        response = await hotelAPI.editRoomTypesByID(id, roomType.id, normalizedRoomType)
+      } else {
+        // Create new room type
+        response = await hotelAPI.addRoomTypes(id, normalizedRoomType)
+      }
+  
       setRoomTypes(prev => {
         const updated = [...prev]
         updated[index] = response
         return updated
       })
+  
+      toast({
+        title: 'Success',
+        description: `Room type ${roomType.id ? 'updated' : 'added'} successfully`,
+      })
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to update room type',
+        description: `Failed to ${roomType.id ? 'update' : 'add'} room type`,
         variant: 'destructive',
       })
     }
   }
+  
+  
 
-  const addRoomType = async () => {
-    if (!id) return
-
+  const addRoomType = () => {
     const newRoomType = {
       name: 'New Room Type',
       pricePerNight: 100,
       totalRooms: 1,
-      amenities: ['WiFi', 'TV'],  // Default amenities
-      images: []
+      amenities: [],
+      images: [],
+      id: null, // or undefined, since it's not saved yet
     }
-
-    try {
-      const response = await hotelAPI.addRoomTypes(id, newRoomType)
-      setRoomTypes(prev => [...prev, response])
-      toast({
-        title: 'Success',
-        description: 'Room type added successfully',
-      })
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to add room type',
-        variant: 'destructive',
-      })
-    }
+  
+    setRoomTypes(prev => [...prev, newRoomType])
   }
+  
 
   const removeRoomType = async (index: number) => {
     if (!id) return
-
+    const roomType = roomTypes[index]
+  
     try {
-      await hotelAPI.deleteRoomTypesByID(id, roomTypes[index].id)
+      if (roomType.id) {
+        const confirmed = window.confirm('Are you sure you want to delete this room type? This action cannot be undone.')
+  
+        if (!confirmed) return
+  
+        console.log("Deleting existing room type")
+        await hotelAPI.deleteRoomTypesByID(id, roomType.id)
+      }
+  
       setRoomTypes(prev => prev.filter((_, i) => i !== index))
+  
       toast({
         title: 'Success',
         description: 'Room type removed successfully',
@@ -227,7 +246,7 @@ export default function EditHotel() {
       })
     }
   }
-
+  
   // Add this function to handle amenity changes
   const handleAmenityChange = (roomTypeIndex: number, value: string) => {
     setAmenityInput(prev => ({
@@ -236,82 +255,73 @@ export default function EditHotel() {
     }))
   }
 
-  // Add this function to add an amenity
-  const addAmenity = async (roomTypeIndex: number) => {
-    if (!amenityInput[roomTypeIndex]?.trim()) return
-
-    const updatedRoomType = {
-      ...roomTypes[roomTypeIndex],
-      amenities: [...roomTypes[roomTypeIndex].amenities, amenityInput[roomTypeIndex].trim()]
-    }
-
-    try {
-      const response = await hotelAPI.editRoomTypesByID(id!, roomTypes[roomTypeIndex].id, updatedRoomType)
-      setRoomTypes(prev => {
-        const updated = [...prev]
-        updated[roomTypeIndex] = response
-        return updated
-      })
-      setAmenityInput(prev => ({
-        ...prev,
-        [roomTypeIndex]: ''
-      }))
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to add amenity',
-        variant: 'destructive',
-      })
-    }
+  const addAmenity = (roomTypeIndex: number) => {
+    const input = amenityInput[roomTypeIndex]?.trim()
+    if (!input) return
+  
+    setRoomTypes(prev => {
+      const updated = [...prev]
+      const currentAmenities = updated[roomTypeIndex].amenities || []
+  
+      // Prevent adding the same amenity twice
+      if (currentAmenities.some(amenity => amenity.amenity === input)) return updated
+  
+      updated[roomTypeIndex] = {
+        ...updated[roomTypeIndex],
+        amenities: [...currentAmenities, { amenity: input }], // Store as object with key `amenity`
+      }
+  
+      return updated
+    })
+  
+    // Clear the input field
+    setAmenityInput(prev => ({
+      ...prev,
+      [roomTypeIndex]: '',
+    }))
+  
+    toast({
+      title: 'Amenity Added',
+      description: `"${input}" has been added to Room Type ${roomTypeIndex + 1}`,
+    })
   }
+  
+  
+
 
   // Add this function to remove an amenity
-  const removeAmenity = async (roomTypeIndex: number, amenityIndex: number) => {
-    const updatedRoomType = {
-      ...roomTypes[roomTypeIndex],
-      amenities: roomTypes[roomTypeIndex].amenities.filter((_, i) => i !== amenityIndex)
-    }
-
-    try {
-      const response = await hotelAPI.editRoomTypesByID(id!, roomTypes[roomTypeIndex].id, updatedRoomType)
-      setRoomTypes(prev => {
-        const updated = [...prev]
-        updated[roomTypeIndex] = response
-        return updated
-      })
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to remove amenity',
-        variant: 'destructive',
-      })
-    }
+  const removeAmenity = (roomTypeIndex: number, amenityIndex: number) => {
+    setRoomTypes(prev => {
+      const updated = [...prev]
+      updated[roomTypeIndex] = {
+        ...updated[roomTypeIndex],
+        amenities: updated[roomTypeIndex].amenities.filter((_, i) => i !== amenityIndex),
+      }
+      return updated
+    })
   }
+  
 
-  // Add this function to handle room type image upload
   const handleRoomTypeImageUpload = async (roomTypeIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
+  
     try {
       const formData = new FormData()
       formData.append("file", file)
-      formData.append("type", "hotelLogo")
-
+      formData.append("type", "roomType")
+  
       const response = await profileAPI.uploadProfileImage(formData)
       if (!response.ok) throw new Error("Failed to upload image")
-
+  
       const data = await response.json()
-      
-      const updatedRoomType = {
-        ...roomTypes[roomTypeIndex],
-        images: [...roomTypes[roomTypeIndex].images, data.url]
-      }
-
-      const apiResponse = await hotelAPI.editRoomTypesByID(id!, roomTypes[roomTypeIndex].id, updatedRoomType)
+  
       setRoomTypes(prev => {
         const updated = [...prev]
-        updated[roomTypeIndex] = apiResponse
+        updated[roomTypeIndex] = {
+          ...updated[roomTypeIndex],
+          images: [...updated[roomTypeIndex].images, data.url]
+        }
         return updated
       })
     } catch (error) {
@@ -322,6 +332,7 @@ export default function EditHotel() {
       })
     }
   }
+  
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -351,8 +362,6 @@ export default function EditHotel() {
         name: formData.name,
         address: formData.address,
         city: formData.city,
-        latitude: Number(formData.latitude),
-        longitude: Number(formData.longitude),
         starRating: Number(formData.starRating),
         logo: formData.logo,
         images: images,
@@ -429,35 +438,6 @@ export default function EditHotel() {
                     value={formData.city}
                     onChange={handleChange}
                     placeholder="e.g. New York"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="latitude">Latitude</Label>
-                  <Input
-                    id="latitude"
-                    name="latitude"
-                    type="number"
-                    step="any"
-                    value={formData.latitude}
-                    onChange={handleChange}
-                    placeholder="e.g. 40.7128"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="longitude">Longitude</Label>
-                  <Input
-                    id="longitude"
-                    name="longitude"
-                    type="number"
-                    step="any"
-                    value={formData.longitude}
-                    onChange={handleChange}
-                    placeholder="e.g. -74.0060"
                     required
                   />
                 </div>
@@ -563,160 +543,162 @@ export default function EditHotel() {
             </CardContent>
           </Card>
 
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>Room Types</CardTitle>
-              <CardDescription>Define the different types of rooms available in your hotel</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {roomTypes.map((roomType, index) => (
-                  <div key={index} className="p-4 border rounded-lg space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-medium">Room Type {index + 1}</h3>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removeRoomType(index)}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor={`room-name-${index}`}>Room Name</Label>
-                        <Input
-                          id={`room-name-${index}`}
-                          value={roomType.name}
-                          onChange={(e) => handleRoomTypeChange(index, 'name', e.target.value)}
-                          placeholder="e.g. Deluxe Suite"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={`room-price-${index}`}>Price per Night</Label>
-                        <Input
-                          id={`room-price-${index}`}
-                          type="number"
-                          value={roomType.pricePerNight}
-                          onChange={(e) => handleRoomTypeChange(index, 'pricePerNight', Number(e.target.value))}
-                          placeholder="e.g. 200"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={`room-capacity-${index}`}>Total Rooms</Label>
-                        <Input
-                          id={`room-capacity-${index}`}
-                          type="number"
-                          value={roomType.totalRooms}
-                          onChange={(e) => handleRoomTypeChange(index, 'totalRooms', Number(e.target.value))}
-                          placeholder="e.g. 5"
-                          required
-                        />
-                      </div>
-                    </div>
+          {roomTypes.map((roomType, index) => (
+  <div key={index} className="p-4 border rounded-lg space-y-4">
+    <div className="flex justify-between items-center">
+      <h3 className="text-lg font-medium">Room Type {index + 1}</h3>
+      <Button
+        type="button"
+        variant="destructive"
+        size="sm"
+        onClick={() => removeRoomType(index)}
+      >
+        Remove
+      </Button>
+    </div>
 
-                    {/* Amenities Section */}
-                    <div className="space-y-2">
-                      <Label>Amenities</Label>
-                      <div className="flex gap-2 flex-wrap">
-                        {roomType.amenities.map((amenity, amenityIndex) => (
-                          <Badge key={amenityIndex} variant="secondary" className="flex items-center gap-1">
-                            {amenity.amenity}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-4 w-4 p-0"
-                              onClick={() => removeAmenity(index, amenityIndex)}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </Badge>
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <Input
-                          value={amenityInput[index] || ''}
-                          onChange={(e) => handleAmenityChange(index, e.target.value)}
-                          placeholder="Add an amenity"
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault()
-                              addAmenity(index)
-                            }
-                          }}
-                        />
-                        <Button type="button" onClick={() => addAmenity(index)}>
-                          Add
-                        </Button>
-                      </div>
-                    </div>
+    {/* Room Info Inputs */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-2">
+        <Label htmlFor={`room-name-${index}`}>Room Name</Label>
+        <Input
+          id={`room-name-${index}`}
+          value={roomType.name}
+          onChange={(e) => handleRoomTypeChange(index, 'name', e.target.value)}
+          placeholder="e.g. Deluxe Suite"
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`room-price-${index}`}>Price per Night</Label>
+        <Input
+          id={`room-price-${index}`}
+          type="number"
+          value={roomType.pricePerNight}
+          onChange={(e) => handleRoomTypeChange(index, 'pricePerNight', Number(e.target.value))}
+          placeholder="e.g. 200"
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`room-capacity-${index}`}>Total Rooms</Label>
+        <Input
+          id={`room-capacity-${index}`}
+          type="number"
+          value={roomType.totalRooms}
+          onChange={(e) => handleRoomTypeChange(index, 'totalRooms', Number(e.target.value))}
+          placeholder="e.g. 5"
+          required
+        />
+      </div>
+    </div>
 
-                    {/* Room Type Images Section */}
-                    <div className="space-y-2">
-                      <Label>Room Images</Label>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {roomType.images.map((image, imageIndex) => (
-                          <div key={imageIndex} className="relative aspect-square rounded-md overflow-hidden border">
-                            <Image
-                              src={image}
-                              alt={`Room Image ${imageIndex + 1}`}
-                              fill
-                              className="object-cover"
-                            />
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="icon"
-                              className="absolute top-1 right-1 h-6 w-6"
-                              onClick={() => {
-                                const updatedRoomType = {
-                                  ...roomType,
-                                  images: roomType.images.filter((_, i) => i !== imageIndex)
-                                }
-                                hotelAPI.editRoomTypesByID(id!, roomType.id, updatedRoomType)
-                                  .then(response => {
-                                    setRoomTypes(prev => {
-                                      const updated = [...prev]
-                                      updated[index] = response
-                                      return updated
-                                    })
-                                  })
-                              }}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                        <div className="aspect-square rounded-md border-2 border-dashed flex flex-col items-center justify-center p-4 text-center">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handleRoomTypeImageUpload(index, e)}
-                            id={`room-images-${index}`}
-                          />
-                          <Upload className="h-8 w-8 mb-2 text-muted-foreground" />
-                          <label htmlFor={`room-images-${index}`} className="text-sm font-medium text-primary cursor-pointer">
-                            Upload Image
-                          </label>
-                          <p className="text-xs text-muted-foreground mt-1">PNG, JPG or WEBP</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <Button type="button" variant="outline" onClick={addRoomType}>
-                  Add Room Type
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+    {/* Amenities Section */}
+    <div className="space-y-2">
+      <Label>Amenities</Label>
+      <div className="flex gap-2 flex-wrap">
+        {roomType.amenities.map((amenity, amenityIndex) => (
+          <Badge key={amenityIndex} variant="secondary" className="flex items-center gap-1">
+            {amenity.amenity}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-4 w-4 p-0"
+              onClick={() => removeAmenity(index, amenityIndex)}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </Badge>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <Input
+          value={amenityInput[index] || ''}
+          onChange={(e) => handleAmenityChange(index, e.target.value)}
+          placeholder="Add an amenity"
+          onKeyPress={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              addAmenity(index)
+            }
+          }}
+        />
+        <Button type="button" onClick={() => addAmenity(index)}>
+          Add
+        </Button>
+      </div>
+    </div>
+
+    {/* Images Section */}
+    <div className="space-y-2">
+      <Label>Room Images</Label>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        
+      {roomType.images.map((image, imageIndex) => {
+        console.log('Rendering image:', image)  // Log the image URL here
+        return (
+          <div key={imageIndex} className="relative aspect-square rounded-md overflow-hidden border">
+            <Image
+              src={image.imageUrl}
+              alt={`Room Image ${imageIndex + 1}`}
+              fill
+              className="object-cover"
+            />
+            <Button
+              type="button"
+              variant="destructive"
+              size="icon"
+              className="absolute top-1 right-1 h-6 w-6"
+              onClick={() => {
+                setRoomTypes(prev => {
+                  const updated = [...prev]
+                  updated[index] = {
+                    ...updated[index],
+                    images: updated[index].images.filter((_, i) => i !== imageIndex),
+                  }
+                  return updated
+                })
+              }}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        )
+      })}
+
+        <div className="aspect-square rounded-md border-2 border-dashed flex flex-col items-center justify-center p-4 text-center">
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => handleRoomTypeImageUpload(index, e)}
+            id={`room-images-${index}`}
+          />
+          <Upload className="h-8 w-8 mb-2 text-muted-foreground" />
+          <label htmlFor={`room-images-${index}`} className="text-sm font-medium text-primary cursor-pointer">
+            Upload Image
+          </label>
+          <p className="text-xs text-muted-foreground mt-1">PNG, JPG or WEBP</p>
+        </div>
+      </div>
+    </div>
+
+    {/* Save Changes Button */}
+    <div className="flex justify-end">
+      <Button type ="button" onClick={() => saveRoomTypeChanges(index)}>Save Changes</Button>
+    </div>
+
+      
+  </div>
+))}
+
 
           <CardFooter className="flex justify-end space-x-4 px-0">
+          <Button type="button" variant="outline" onClick={addRoomType}>
+            + Add Room Type
+          </Button>
+
             <Button
               type="button"
               variant="outline"

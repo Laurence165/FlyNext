@@ -63,7 +63,7 @@ export async function PUT(
   if (user instanceof Response) return user;
 
   try {
-    const { hotelId } = params;
+    const { hotelId } = await params;
     const body = await req.json();
     const { name, logo, address, city, latitude, longitude, starRating, images } = body;
     

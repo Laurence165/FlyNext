@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Edit, Trash2, Plus, Bed } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -16,7 +16,8 @@ export default function RoomsList() {
   const { user, isHotelOwner, isLoading } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
-
+  const searchParams = useSearchParams()
+  const id = searchParams.get('id')
   useEffect(() => {
     // Only run on client-side
     if (typeof window !== "undefined" && !isLoading) {
@@ -28,6 +29,7 @@ export default function RoomsList() {
 
   const handleDeleteRoom = (roomId: string) => {
     // TODO: call an API to delete the room
+    
     toast({
       title: "Room type deleted",
       description: "The room type has been deleted successfully",
