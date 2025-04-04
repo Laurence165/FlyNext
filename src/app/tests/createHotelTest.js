@@ -1,7 +1,6 @@
 const axios = require('axios');
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL + "/api" || "http://localhost:3000/api";
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL + "/api" || "/api"
 async function testCreateHotel() {
   try {
     const testHotelData = {
