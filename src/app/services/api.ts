@@ -1,7 +1,8 @@
 // Base API URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
-  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
-  : "/api";
+// const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
+//   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
+//   : "/api";
+const API_BASE_URL = "/api";
 import axios from "axios";
 
 import { Hotel, AddRoomType } from "@/types";
