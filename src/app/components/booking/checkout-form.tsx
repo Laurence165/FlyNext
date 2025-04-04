@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { CreditCard, Loader2 } from "lucide-react"
+import { AlertCircle, CreditCard, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,6 +20,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 const formSchema = z.object({
   cardholderName: z.string().min(3, "Cardholder name is required"),
@@ -33,6 +34,7 @@ export default function CheckoutForm() {
   const router = useRouter()
   const { cart, clearCart, fetchCart } = useBooking()
   const [isProcessing, setIsProcessing] = useState(false)
+  const [paymentError, setPaymentError] = useState<string | null>(null)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -46,23 +48,14 @@ export default function CheckoutForm() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsProcessing(true)
-    console.log("Checkout form submitted with values:", {
-      cardholderName: values.cardholderName,
-      cardNumberLength: values.cardNumber.replace(/\s/g, '').length,
-      expiryDate: values.expiryDate,
-      cvvLength: values.cvv.length
-    });
+    setPaymentError(null) // Reset any previous errors
     
     try {
       // Get all booking IDs from cart
       const bookingIds = cart.map(item => item.id)
-      console.log("Booking IDs to process:", bookingIds);
-      console.log("Cart items:", cart.length);
       
       // Process payment
-      console.log("Sending checkout request...");
       const token = localStorage.getItem('token');
-      console.log("Token exists:", !!token);
       
       const response = await fetch('/api/checkout', {
         method: 'POST',
@@ -79,17 +72,14 @@ export default function CheckoutForm() {
         })
       })
       
-      console.log("Checkout response status:", response.status);
       const data = await response.json()
-      console.log("Checkout response data:", data);
       
       if (!response.ok) {
-        console.log("Checkout failed with error:", data.error);
+        setPaymentError(data.error || 'Payment failed. Please check your payment details and try again.')
         throw new Error(data.error || 'Payment failed')
       }
       
       // Clear cart after successful payment
-      console.log("Payment successful, clearing cart");
       clearCart();
 
       // Add a small delay before fetching cart to ensure backend has updated
@@ -97,7 +87,6 @@ export default function CheckoutForm() {
         await fetchCart();
         
         // Redirect to bookings page after cart is refreshed
-        console.log("Redirecting to bookings page");
         router.push('/bookings');
       }, 500);
 
@@ -107,11 +96,7 @@ export default function CheckoutForm() {
       })
     } catch (error) {
       console.error('Payment error:', error)
-      toast({
-        title: "Payment Failed",
-        description: error instanceof Error ? error.message : "An error occurred during payment processing.",
-        variant: "destructive"
-      })
+      // Error is already set in state above, no need to do anything else here
     } finally {
       setIsProcessing(false)
     }
@@ -137,15 +122,25 @@ export default function CheckoutForm() {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-6 rounded-lg border bg-card text-card-foreground shadow-sm">
+        <h3 className="text-lg font-semibold mb-4 text-foreground">Payment Details</h3>
+        
+        {paymentError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Payment Error</AlertTitle>
+            <AlertDescription>{paymentError}</AlertDescription>
+          </Alert>
+        )}
+        
         <FormField
           control={form.control}
           name="cardholderName"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Cardholder Name</FormLabel>
+              <FormLabel className="text-foreground">Cardholder Name</FormLabel>
               <FormControl>
-                <Input placeholder="John Doe" {...field} />
+                <Input placeholder="John Doe" className="bg-background text-foreground" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -157,10 +152,11 @@ export default function CheckoutForm() {
           name="cardNumber"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Card Number</FormLabel>
+              <FormLabel className="text-foreground">Card Number</FormLabel>
               <FormControl>
                 <Input 
                   placeholder="4111 1111 1111 1111" 
+                  className="bg-background text-foreground"
                   {...field} 
                   onChange={(e) => {
                     field.onChange(formatCardNumber(e.target.value))
@@ -179,10 +175,11 @@ export default function CheckoutForm() {
             name="expiryDate"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Expiry Date</FormLabel>
+                <FormLabel className="text-foreground">Expiry Date</FormLabel>
                 <FormControl>
                   <Input 
                     placeholder="MM/YY" 
+                    className="bg-background text-foreground"
                     {...field} 
                     maxLength={5}
                     onChange={(e) => {
@@ -204,11 +201,12 @@ export default function CheckoutForm() {
             name="cvv"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>CVV</FormLabel>
+                <FormLabel className="text-foreground">CVV</FormLabel>
                 <FormControl>
                   <Input 
                     type="password" 
                     placeholder="123" 
+                    className="bg-background text-foreground"
                     {...field} 
                     maxLength={4}
                     onChange={(e) => {

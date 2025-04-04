@@ -1,6 +1,7 @@
 "use client"
 
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer"
+import { format } from "date-fns"
 import type { Booking } from "./booking-context"
 
 // Create styles
@@ -82,159 +83,204 @@ interface InvoicePDFProps {
   booking: Booking
 }
 
-const InvoicePDF = ({ booking }: InvoicePDFProps) => (
-  <Document>
-    <Page size="A4" style={styles.page}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>FlyNext</Text>
-        <Text style={styles.subtitle}>Invoice #{booking.id}</Text>
-        <Text style={styles.subtitle}>Date: {booking.bookingDate}</Text>
-      </View>
+const formatDate = (dateString: string) => {
+  try {
+    return format(new Date(dateString), "MMMM d, yyyy")
+  } catch (error) {
+    return dateString
+  }
+}
 
-      {/* Customer Information */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Customer Information</Text>
-        <Text style={styles.value}>User ID: {booking.userId}</Text>
-        <Text style={styles.value}>Payment Method: {booking.paymentMethod}</Text>
-        {booking.cardLastFour && (
-          <Text style={styles.value}>Card ending in: **** **** **** {booking.cardLastFour}</Text>
+const formatDateTime = (dateString: string) => {
+  try {
+    return format(new Date(dateString), "MMMM d, yyyy h:mm a")
+  } catch (error) {
+    return dateString
+  }
+}
+
+const formatCurrency = (amount: number) => {
+  return amount.toFixed(2)
+}
+
+const calculateTotal = (booking: Booking) => {
+  let total = 0;
+  
+  // Calculate hotel reservation prices
+  if (booking.reservations && booking.reservations.length > 0) {
+    booking.reservations.forEach(reservation => {
+      const nights = Math.round(
+        (new Date(reservation.checkOutDate).getTime() - new Date(reservation.checkInDate).getTime()) / 
+        (1000 * 60 * 60 * 24)
+      );
+      total += reservation.roomType.pricePerNight * reservation.roomsBooked * nights;
+    });
+  }
+  
+  // Add flight prices
+  if (booking.flights && booking.flights.length > 0) {
+    total += booking.totalPrice || 0;
+  }
+  
+  return total;
+}
+
+const InvoicePDF = ({ booking }: InvoicePDFProps) => {
+  // Guard against undefined booking data
+  if (!booking) {
+    return (
+      <Document>
+        <Page size="A4" style={styles.page}>
+          <Text>Error: Booking data not available</Text>
+        </Page>
+      </Document>
+    );
+  }
+  
+  const totalAmount = calculateTotal(booking);
+  
+  return (
+    <Document>
+      <Page size="A4" style={styles.page}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>FlyNext</Text>
+          <Text style={styles.subtitle}>Invoice #{booking.id}</Text>
+          <Text style={styles.subtitle}>Date: {formatDate(booking.bookingDate || new Date().toString())}</Text>
+          <Text style={styles.subtitle}>Status: {booking.status || "PENDING"}</Text>
+        </View>
+
+        {/* Customer Information */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Booking Information</Text>
+          <Text style={styles.value}>Booking ID: {booking.id}</Text>
+          <Text style={styles.value}>User ID: {booking.userId}</Text>
+          <Text style={styles.value}>Status: {booking.status || "PENDING"}</Text>
+          <Text style={styles.value}>Created: {formatDateTime(booking.createdAt || new Date().toString())}</Text>
+        </View>
+
+        {/* Flight Information */}
+        {booking.flights && booking.flights.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Flight Details</Text>
+            {booking.flights.map((flight, index) => (
+              <View key={flight.id} style={{ marginBottom: 10 }}>
+                <Text style={{ ...styles.value, fontWeight: 'bold' }}>Flight {index + 1}</Text>
+                <View style={styles.row}>
+                  <View style={styles.column}>
+                    <Text style={styles.label}>From</Text>
+                    <Text style={styles.value}>{flight.source}</Text>
+                  </View>
+                  <View style={styles.column}>
+                    <Text style={styles.label}>To</Text>
+                    <Text style={styles.value}>{flight.destination}</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.row}>
+                  <View style={styles.column}>
+                    <Text style={styles.label}>Departure</Text>
+                    <Text style={styles.value}>{formatDateTime(flight.departureTime)}</Text>
+                  </View>
+                  <View style={styles.column}>
+                    <Text style={styles.label}>Arrival</Text>
+                    <Text style={styles.value}>{formatDateTime(flight.arrivalTime)}</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.row}>
+                  <View style={styles.column}>
+                    <Text style={styles.label}>Status</Text>
+                    <Text style={styles.value}>{flight.status}</Text>
+                  </View>
+                  <View style={styles.column}>
+                    <Text style={styles.label}>Price</Text>
+                    <Text style={styles.value}>${flight.price ? formatCurrency(flight.price) : "N/A"}</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
         )}
-      </View>
 
-      {/* Flight Information */}
-      {booking.flight && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Flight Details</Text>
-          <View style={styles.row}>
-            <View style={styles.column}>
-              <Text style={styles.label}>Airline</Text>
-              <Text style={styles.value}>{booking.flight.airline}</Text>
-            </View>
-            <View style={styles.column}>
-              <Text style={styles.label}>Flight Number</Text>
-              <Text style={styles.value}>{booking.flight.flightNumber}</Text>
-            </View>
+        {/* Hotel Information */}
+        {booking.reservations && booking.reservations.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Hotel Reservations</Text>
+            {booking.reservations.map((reservation) => {
+              const nights = Math.round(
+                (new Date(reservation.checkOutDate).getTime() - new Date(reservation.checkInDate).getTime()) / 
+                (1000 * 60 * 60 * 24)
+              );
+              const totalPrice = reservation.roomType.pricePerNight * reservation.roomsBooked * nights;
+              
+              return (
+                <View key={reservation.id} style={{ marginBottom: 10 }}>
+                  <Text style={{ ...styles.value, fontWeight: 'bold' }}>{reservation.roomType.hotel.name}</Text>
+                  <View style={styles.row}>
+                    <View style={styles.column}>
+                      <Text style={styles.label}>Room Type</Text>
+                      <Text style={styles.value}>{reservation.roomType.name}</Text>
+                    </View>
+                    <View style={styles.column}>
+                      <Text style={styles.label}>Status</Text>
+                      <Text style={styles.value}>{reservation.status}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.row}>
+                    <View style={styles.column}>
+                      <Text style={styles.label}>Check-in</Text>
+                      <Text style={styles.value}>{formatDate(reservation.checkInDate)}</Text>
+                    </View>
+                    <View style={styles.column}>
+                      <Text style={styles.label}>Check-out</Text>
+                      <Text style={styles.value}>{formatDate(reservation.checkOutDate)}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.row}>
+                    <View style={styles.column}>
+                      <Text style={styles.label}>Nights</Text>
+                      <Text style={styles.value}>{nights}</Text>
+                    </View>
+                    <View style={styles.column}>
+                      <Text style={styles.label}>Rooms</Text>
+                      <Text style={styles.value}>{reservation.roomsBooked}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.row}>
+                    <View style={styles.column}>
+                      <Text style={styles.label}>Price per Night</Text>
+                      <Text style={styles.value}>${formatCurrency(reservation.roomType.pricePerNight)}</Text>
+                    </View>
+                    <View style={styles.column}>
+                      <Text style={styles.label}>Total Price</Text>
+                      <Text style={styles.value}>${formatCurrency(totalPrice)}</Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
           </View>
-          <View style={styles.row}>
-            <View style={styles.column}>
-              <Text style={styles.label}>Departure</Text>
-              <Text style={styles.value}>
-                {booking.flight.departureCode} - {booking.flight.departureTime}
-              </Text>
-              <Text style={styles.value}>{booking.flight.departureDate}</Text>
-            </View>
-            <View style={styles.column}>
-              <Text style={styles.label}>Arrival</Text>
-              <Text style={styles.value}>
-                {booking.flight.arrivalCode} - {booking.flight.arrivalTime}
-              </Text>
-            </View>
-          </View>
-          {booking.flight.tripType === "roundTrip" && booking.flight.returnFlightNumber && (
-            <>
-              <Text style={styles.label}>Return Flight</Text>
-              <View style={styles.row}>
-                <View style={styles.column}>
-                  <Text style={styles.label}>Flight Number</Text>
-                  <Text style={styles.value}>{booking.flight.returnFlightNumber}</Text>
-                </View>
-                <View style={styles.column}>
-                  <Text style={styles.label}>Airline</Text>
-                  <Text style={styles.value}>{booking.flight.returnAirline}</Text>
-                </View>
-              </View>
-              <View style={styles.row}>
-                <View style={styles.column}>
-                  <Text style={styles.label}>Departure</Text>
-                  <Text style={styles.value}>
-                    {booking.flight.returnDepartureCode} - {booking.flight.returnDepartureTime}
-                  </Text>
-                  <Text style={styles.value}>{booking.flight.returnDate}</Text>
-                </View>
-                <View style={styles.column}>
-                  <Text style={styles.label}>Arrival</Text>
-                  <Text style={styles.value}>
-                    {booking.flight.returnArrivalCode} - {booking.flight.returnArrivalTime}
-                  </Text>
-                </View>
-              </View>
-            </>
-          )}
-          <View style={styles.row}>
-            <View style={styles.column}>
-              <Text style={styles.label}>Passengers</Text>
-              <Text style={styles.value}>{booking.flight.passengers}</Text>
-            </View>
-            <View style={styles.column}>
-              <Text style={styles.label}>Price</Text>
-              <Text style={styles.value}>${booking.flight.price}</Text>
-            </View>
-          </View>
+        )}
+
+        {/* Total */}
+        <View style={styles.total}>
+          <Text style={styles.totalLabel}>Total Amount</Text>
+          <Text style={styles.totalValue}>${formatCurrency(totalAmount)}</Text>
         </View>
-      )}
 
-      {/* Hotel Information */}
-      {booking.hotel && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Hotel Details</Text>
-          <View style={styles.row}>
-            <View style={styles.column}>
-              <Text style={styles.label}>Hotel</Text>
-              <Text style={styles.value}>{booking.hotel.hotelName}</Text>
-            </View>
-            <View style={styles.column}>
-              <Text style={styles.label}>Room Type</Text>
-              <Text style={styles.value}>{booking.hotel.roomType}</Text>
-            </View>
-          </View>
-          <View style={styles.row}>
-            <View style={styles.column}>
-              <Text style={styles.label}>Check-in</Text>
-              <Text style={styles.value}>{booking.hotel.checkIn}</Text>
-            </View>
-            <View style={styles.column}>
-              <Text style={styles.label}>Check-out</Text>
-              <Text style={styles.value}>{booking.hotel.checkOut}</Text>
-            </View>
-          </View>
-          <View style={styles.row}>
-            <View style={styles.column}>
-              <Text style={styles.label}>Nights</Text>
-              <Text style={styles.value}>{booking.hotel.nights}</Text>
-            </View>
-            <View style={styles.column}>
-              <Text style={styles.label}>Guests</Text>
-              <Text style={styles.value}>{booking.hotel.guests}</Text>
-            </View>
-          </View>
-          <View style={styles.row}>
-            <View style={styles.column}>
-              <Text style={styles.label}>Price per Night</Text>
-              <Text style={styles.value}>${booking.hotel.pricePerNight}</Text>
-            </View>
-            <View style={styles.column}>
-              <Text style={styles.label}>Total Price</Text>
-              <Text style={styles.value}>${booking.hotel.totalPrice}</Text>
-            </View>
-          </View>
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text>Thank you for booking with FlyNext!</Text>
+          <Text>For any questions, please contact support@flynext.com</Text>
         </View>
-      )}
-
-      {/* Total */}
-      <View style={styles.total}>
-        <Text style={styles.totalLabel}>Total Amount</Text>
-        <Text style={styles.totalValue}>${booking.totalAmount}</Text>
-      </View>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text>Thank you for booking with FlyNext!</Text>
-        <Text>For any questions, please contact support@flynext.com</Text>
-      </View>
-    </Page>
-  </Document>
-)
+      </Page>
+    </Document>
+  )
+}
 
 export default InvoicePDF
 

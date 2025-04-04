@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell } from "lucide-react"
+import { Bell, RefreshCw } from "lucide-react"
 import { useState } from "react"
 import { format } from "date-fns"
 
@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 
 export default function NotificationBell() {
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications()
+  const { notifications, unreadCount, markAsRead, markAllAsRead, refreshNotifications, isLoading } = useNotifications()
   const [open, setOpen] = useState(false)
 
   const handleNotificationClick = (id: string) => {
@@ -20,6 +20,10 @@ export default function NotificationBell() {
 
   const handleMarkAllAsRead = () => {
     markAllAsRead()
+  }
+
+  const handleRefresh = async () => {
+    await refreshNotifications()
   }
 
   const formatDate = (dateString: string) => {
@@ -31,8 +35,16 @@ export default function NotificationBell() {
     }
   }
 
+  // Refresh notifications when the popover opens
+  const handleOpenChange = (isOpen: boolean) => {
+    if (isOpen) {
+      refreshNotifications()
+    }
+    setOpen(isOpen)
+  }
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
@@ -46,11 +58,11 @@ export default function NotificationBell() {
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between p-4 border-b">
           <h4 className="font-medium">Notifications</h4>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead}>
-              Mark all as read
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={isLoading}>
+              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
             </Button>
-          )}
+          </div>
         </div>
         {notifications.length > 0 ? (
           <ScrollArea className="h-[300px]">
@@ -74,7 +86,9 @@ export default function NotificationBell() {
             </div>
           </ScrollArea>
         ) : (
-          <div className="p-4 text-center text-muted-foreground">No notifications</div>
+          <div className="p-4 text-center text-muted-foreground">
+            {isLoading ? "Loading notifications..." : "No notifications"}
+          </div>
         )}
       </PopoverContent>
     </Popover>

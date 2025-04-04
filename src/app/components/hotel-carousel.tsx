@@ -57,7 +57,6 @@ export function HotelCarousel({ hotels }: HotelCarouselProps) {
               key={`${hotel.id}-${index}`}
               className="min-w-[calc(25%-18px)] max-w-[calc(25%-18px)] flex-shrink-0"
             >
-              <Link href={`/hotels/${hotel.id}`}>
                 <Card className="overflow-hidden hover:shadow-lg transition-all h-full bg-white border dark:bg-gray-900 dark:border-gray-800">
                   <div className="relative h-48 w-full overflow-hidden">
                     <Image
@@ -94,7 +93,6 @@ export function HotelCarousel({ hotels }: HotelCarouselProps) {
                     </div>
                   </CardContent>
                 </Card>
-              </Link>
             </div>
           ))}
         </div>

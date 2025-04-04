@@ -8,12 +8,28 @@ import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 
-export default function CartSummary() {
-  const { cart, removeFromCart } = useBooking()
+interface CartSummaryProps {
+  hideCheckoutButton?: boolean;
+}
+
+export default function CartSummary({ hideCheckoutButton = false }: CartSummaryProps) {
+  const { cart, removeFromCart, cartTotal } = useBooking()
   const router = useRouter()
 
   const calculateTotal = () => {
-    return cart.reduce((total, item) => total + item.totalPrice, 0)
+    return cart.reduce((total, item) => {
+      // Calculate hotel reservation prices
+      if (item.reservations && item.reservations.length > 0) {
+        return total + item.reservations.reduce((reservationTotal, reservation) => 
+          reservationTotal + (reservation.roomType.pricePerNight * 
+            reservation.roomsBooked * 
+            Math.round((new Date(reservation.checkOutDate).getTime() - 
+              new Date(reservation.checkInDate).getTime()) / (1000 * 60 * 60 * 24))
+          ), 0);
+      }
+      // Use stored price for flights and other booking types
+      return total + item.totalPrice;
+    }, 0);
   }
 
   const handleRemoveItem = async (bookingId: string) => {
@@ -93,7 +109,17 @@ export default function CartSummary() {
                 </div>
               </div>
               <div className="flex items-start space-x-2">
-                <p className="font-medium">${item.totalPrice.toFixed(2)}</p>
+                <p className="font-medium">
+                ${item.reservations && item.reservations.length > 0 
+                  ? (item.reservations.reduce((total, reservation) => 
+                      total + (reservation.roomType.pricePerNight * 
+                        reservation.roomsBooked * 
+                        Math.round((new Date(reservation.checkOutDate).getTime() - 
+                          new Date(reservation.checkInDate).getTime()) / (1000 * 60 * 60 * 24))
+                      ), 0)).toFixed(2)
+                  : item.totalPrice.toFixed(2)
+                }
+                </p>
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveItem(item.id)}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -110,10 +136,12 @@ export default function CartSummary() {
         </div>
       </CardContent>
       <CardFooter>
-        <Button className="w-full" onClick={handleCheckout}>
-          <CreditCard className="mr-2 h-4 w-4" />
-          Proceed to Checkout
-        </Button>
+        {!hideCheckoutButton && cart.length > 0 && (
+          <Button className="w-full" onClick={handleCheckout}>
+            <CreditCard className="mr-2 h-4 w-4" />
+            Proceed to Checkout
+          </Button>
+        )}
       </CardFooter>
     </Card>
   )

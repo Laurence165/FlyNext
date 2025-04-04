@@ -112,7 +112,7 @@ export async function POST(
           await prisma.notification.create({
             data: {
               userId: booking.userId,
-              message: `Your hotel reservation${ownedReservationIds.length > 1 ? 's' : ''} for booking (ID: ${bookingId.substring(0, 8)}) ${ownedReservationIds.length > 1 ? 'have' : 'has'} been cancelled by the hotel`,
+              message: `Your hotel reservation${ownedReservationIds.length > 1 ? 's' : ''} for booking #${bookingId.substring(0, 8)} ${ownedReservationIds.length > 1 ? 'have' : 'has'} been cancelled by the hotel.`,
               type: "BOOKING_CANCELLED"
             }
           });
@@ -140,7 +140,7 @@ export async function POST(
         await prisma.notification.create({
           data: {
             userId: booking.userId,
-            message: `Your booking (ID: ${bookingId.substring(0, 8)}) has been ${updateBookingStatus ? 'completely ' : 'partially '}cancelled`,
+            message: `Your booking #${bookingId.substring(0, 8)} has been ${updateBookingStatus ? 'completely ' : 'partially '}cancelled.`,
             type: "BOOKING_CANCELLED"
           }
         });

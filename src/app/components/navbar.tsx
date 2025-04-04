@@ -9,7 +9,6 @@ import { Menu, X, LogIn, ShoppingCart } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { useAuth } from "./auth/auth-context"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ThemeToggle } from "@/app/components/themeProvider"
 import {
   DropdownMenu,
@@ -20,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useBooking } from "./booking/booking-context"
 import NotificationBell from "./notifications/notification-bell"
+import UserAvatar from "./user-avatar"
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -27,15 +27,6 @@ export default function Navbar() {
 
   const { user: authUser, logout, isHotelOwner, isLoading } = useAuth()
   const user = authUser
-  //  || {
-  //   id: "1",
-  //   email: "john.doe@example.com",
-  //   firstName: "John",
-  //   lastName: "Doe",
-  //   phone: "+1 (555) 123-4567",
-  //   profilePic: "/placeholder.svg?height=200&width=200",
-  //   role: "visitor",
-  // }
   const { cart } = useBooking()
   const [isMobileView, setIsMobileView] = useState(false)
 
@@ -57,10 +48,6 @@ export default function Navbar() {
 
   const closeMenu = () => {
     setIsMenuOpen(false)
-  }
-
-  const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
   }
 
   return (
@@ -101,10 +88,7 @@ export default function Navbar() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.profilePic} alt={`${user.firstName} ${user.lastName}`} />
-                      <AvatarFallback>{getInitials(user.firstName, user.lastName)}</AvatarFallback>
-                    </Avatar>
+                    <UserAvatar />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -174,10 +158,7 @@ export default function Navbar() {
               <NotificationBell />
 
               <Link href={isHotelOwner ? "/hotel-owner/dashboard" : "/profile"} className="mr-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.profilePic} alt={`${user.firstName} ${user.lastName}`} />
-                  <AvatarFallback>{getInitials(user.firstName, user.lastName)}</AvatarFallback>
-                </Avatar>
+                <UserAvatar />
               </Link>
             </div>
           )}

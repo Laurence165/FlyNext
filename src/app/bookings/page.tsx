@@ -386,7 +386,7 @@ export default function BookingsPage() {
                             Total Price
                           </p>
                           <p className="font-medium">
-                            ${selectedBooking.hotel.totalPrice}
+                            ${selectedBooking.hotel.pricePerNight * selectedBooking.hotel.nights}
                           </p>
                         </div>
                       </div>
@@ -399,8 +399,13 @@ export default function BookingsPage() {
                     <p className="text-sm text-muted-foreground">
                       Total Amount
                     </p>
-                    <p className="text-xl font-semibold">
-                      ${selectedBooking.totalPrice}
+                    <p className="text-lg font-semibold">$
+                      {selectedBooking.hotel && !selectedBooking.flight 
+                        ? (selectedBooking.hotel.totalPrice || 
+                           (selectedBooking.hotel.pricePerNight && selectedBooking.hotel.nights
+                            ? Number(selectedBooking.hotel.pricePerNight) * Number(selectedBooking.hotel.nights)
+                            : selectedBooking.totalPrice))
+                        : selectedBooking.totalPrice}
                     </p>
                   </div>
                   <div>
@@ -547,6 +552,33 @@ function BookingCard({
     flightInfo = booking.flight;
     hotelInfo = booking.hotel;
   }
+
+  // Calculate hotel total price based on schema information
+  const calculateHotelTotalPrice = () => {
+    if (!hotelInfo) return booking.totalPrice;
+    
+    // For new structure with Reservation model (checkInDate/checkOutDate)
+    if (hotelInfo.checkInDate && hotelInfo.checkOutDate) {
+      const checkIn = new Date(hotelInfo.checkInDate);
+      const checkOut = new Date(hotelInfo.checkOutDate);
+      const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+      return (hotelInfo.roomType?.pricePerNight || 0) * nights * (hotelInfo.roomsBooked || 1);
+    }
+    
+    // For old structure with hotel model (nights & pricePerNight)
+    if (hotelInfo.pricePerNight && hotelInfo.nights) {
+      return Number(hotelInfo.pricePerNight) * Number(hotelInfo.nights);
+    }
+    
+    // Fallback to any available totalPrice
+    return hotelInfo.totalPrice || booking.totalPrice;
+  };
+
+  // Calculate the hotel total price
+  const hotelTotalPrice = hotelInfo ? calculateHotelTotalPrice() : 0;
+  
+  // Use hotel total price for hotel-only bookings, otherwise use booking.totalPrice
+  const displayTotalPrice = hotelInfo && !flightInfo ? hotelTotalPrice : booking.totalPrice;
 
   return (
     <Card className="overflow-hidden">
@@ -832,7 +864,7 @@ function BookingCard({
                     $
                     {hasNewStructure
                       ? hotelInfo.totalPrice || booking.totalPrice
-                      : hotelInfo.totalPrice}
+                      : (hotelInfo.totalPrice || (hotelInfo.pricePerNight * hotelInfo.nights))}
                   </p>
                 </div>
               </CardContent>
@@ -882,8 +914,15 @@ function BookingCard({
       <CardFooter className="border-t bg-muted/10 p-4">
         <div className="flex justify-between items-center w-full">
           <div>
-            <p className="text-sm text-muted-foreground">Total Amount</p>
-            <p className="text-lg font-semibold">${booking.totalPrice}</p>
+            <p className="text-sm text-muted-foreground"></p>
+            <p className="text-lg font-semibold">$
+              {hotelInfo && !flightInfo 
+                ? (hotelInfo.totalPrice || 
+                   (hotelInfo.pricePerNight && hotelInfo.nights
+                    ? Number(hotelInfo.pricePerNight) * Number(hotelInfo.nights)
+                    : booking.totalPrice))
+                : booking.totalPrice}
+            </p>
           </div>
 
           <div className="flex space-x-2">

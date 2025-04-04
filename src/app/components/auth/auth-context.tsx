@@ -14,15 +14,23 @@ export type User = {
   hotels?: string[]
 }
 
+type LoginCredentials = {
+  email: string
+  password: string
+}
+
+type SignupData = Omit<User, "id"> & { password: string }
+
 type AuthContextType = {
   user: User | null
-  isLoading: boolean
   isAuthenticated: boolean
+  isLoading: boolean
   isHotelOwner: boolean
-  login: (email: string, password: string) => Promise<void>
-  signup: (userData: Omit<User, "id"> & { password: string }) => Promise<void>
+  login: (credentials: LoginCredentials) => Promise<void>
+  signup: (userData: SignupData) => Promise<void>
   logout: () => void
   updateProfile: (userData: Partial<User>) => Promise<void>
+  refreshUserProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -78,11 +86,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     initAuth()
   }, [])
 
-  const login = async (email: string, password: string) => {
+  const login = async (credentials: LoginCredentials) => {
     setIsLoading(true);
     try {
       // Destructure the accessToken and refreshToken from the response
-      const { user, accessToken, refreshToken } = await authAPI.login(email, password);
+      const { user, accessToken, refreshToken } = await authAPI.login(credentials.email, credentials.password);
       
       // console.log("accessToken:", accessToken); // Log the accessToken to confirm it's returned
       // console.log("refreshToken:", refreshToken); // Log the refreshToken to confirm it's returned
@@ -102,9 +110,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  
-
-  const signup = async (userData: Omit<User, "id"> & { password: string }) => {
+  const signup = async (userData: SignupData) => {
     setIsLoading(true)
     try {
         try {
@@ -153,17 +159,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(false);
     }
   };
+
+  const refreshUserProfile = async () => {
+    if (!user) return;
+
+    try {
+      const response = await authAPI.getProfile();
+      if (response && response.user) {
+        setUser(response.user);
+      }
+    } catch (error) {
+      console.error("Failed to refresh user profile", error);
+    }
+  };
   
   //console.log(user)
   const contextValue = {
     user,
-    isLoading,
     isAuthenticated: !!user,
+    isLoading,
     isHotelOwner: user?.role === "HOTEL_OWNER",
     login,
     signup,
     logout,
     updateProfile,
+    refreshUserProfile,
   }
   //(contextValue.isAuthenticated)
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>

@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react"
 import { notificationAPI } from "@/app/services/api"
 
 export type Notification = {
@@ -18,6 +18,8 @@ type NotificationContextType = {
   markAsRead: (id: string) => void
   markAllAsRead: () => void
   addNotification: (notification: Omit<Notification, "id" | "date" | "read">) => void
+  refreshNotifications: () => Promise<void>
+  isLoading: boolean
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined)
@@ -32,46 +34,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
     date: "2023-05-20T10:30:00Z",
     read: false,
   },
-  {
-    id: "n2",
-    userId: "1",
-    type: "booking_confirmed",
-    message: "Your booking #B1002 has been confirmed.",
-    date: "2023-06-01T14:15:00Z",
-    read: true,
-  },
-  {
-    id: "n4",
-    userId: "1",
-    type: "booking_confirmed",
-    message: "Your booking #B1003 has been confirmed.",
-    date: "2023-07-15T09:45:00Z",
-    read: false,
-  },
-  {
-    id: "n5",
-    userId: "1",
-    type: "booking_cancelled",
-    message: "Your booking #B1004 has been cancelled.",
-    date: "2023-08-25T16:20:00Z",
-    read: true,
-  },
-  {
-    id: "n6",
-    userId: "1",
-    type: "booking_confirmed",
-    message: "Your booking #B1005 has been confirmed.",
-    date: "2023-10-15T11:10:00Z",
-    read: false,
-  },
-  {
-    id: "n7",
-    userId: "1",
-    type: "booking_updated",
-    message: "Your flight details for booking #B1003 have been updated.",
-    date: "2023-07-20T14:30:00Z",
-    read: false,
-  },
+  // ... other mock notifications
 ]
 
 export const NotificationProvider = ({ children }: { children: ReactNode }) => {
@@ -80,32 +43,40 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true)
   const [apiAvailable, setApiAvailable] = useState(true)
 
-  // Fetch notifications from API
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      setIsLoading(true)
-      try {
-        const response = await notificationAPI.getNotifications()
-
-        // Ensure fetchedNotifications is an array
-        const fetchedNotifications = Array.isArray(response) ? response : []
-
-        setNotifications(fetchedNotifications)
-        setUnreadCount(fetchedNotifications.filter((n: Notification) => !n.read).length)
-        setApiAvailable(true)
-      } catch (error) {
-        console.error("Error fetching notifications:", error)
-        // Fallback to mock data if API fails
-        setNotifications(MOCK_NOTIFICATIONS)
-        setUnreadCount(MOCK_NOTIFICATIONS.filter((n) => !n.read).length)
-        setApiAvailable(false)
-      } finally {
-        setIsLoading(false)
-      }
+  // Extract this to a reusable function for refreshing notifications
+  const refreshNotifications = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const response = await notificationAPI.getNotifications()
+      
+      // Ensure fetchedNotifications is an array
+      const fetchedNotifications = Array.isArray(response) ? response : []
+      
+      setNotifications(fetchedNotifications)
+      setUnreadCount(fetchedNotifications.filter((n: Notification) => !n.read).length)
+      setApiAvailable(true)
+    } catch (error) {
+      console.error("Error fetching notifications:", error)
+      // Fallback to mock data if API fails
+      setNotifications(MOCK_NOTIFICATIONS)
+      setUnreadCount(MOCK_NOTIFICATIONS.filter((n) => !n.read).length)
+      setApiAvailable(false)
+    } finally {
+      setIsLoading(false)
     }
-
-    fetchNotifications()
   }, [])
+
+  // Fetch notifications from API on initial load
+  useEffect(() => {
+    refreshNotifications()
+
+    // Set up a refresh interval (every 30 seconds)
+    const intervalId = setInterval(() => {
+      refreshNotifications()
+    }, 30000)
+
+    return () => clearInterval(intervalId)
+  }, [refreshNotifications])
 
   const markAsRead = async (id: string) => {
     try {
@@ -148,17 +119,19 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const addNotification = (notification: Omit<Notification, "id" | "date" | "read">) => {
-    // This would typically be handled by a WebSocket or server-sent events
-    // For now, we'll just add it to the local state
+    // Create a new notification with unique timestamp-based ID
     const newNotification: Notification = {
       ...notification,
-      id: `n${'2020-01-01'}`,
+      id: `n${Date.now()}`,
       date: new Date().toISOString(),
       read: false,
     }
 
     setNotifications((prev) => [newNotification, ...prev])
     setUnreadCount((prev) => prev + 1)
+    
+    // After adding a local notification, refresh from server to sync
+    setTimeout(() => refreshNotifications(), 1000)
   }
 
   return (
@@ -169,6 +142,8 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         markAsRead,
         markAllAsRead,
         addNotification,
+        refreshNotifications,
+        isLoading,
       }}
     >
       {children}

@@ -93,7 +93,19 @@ export default function CartPage() {
   };
 
   const calculateTotal = () => {
-    return cart.reduce((total, item) => total + item.totalPrice, 0);
+    return cart.reduce((total, item) => {
+      // Calculate hotel reservation prices
+      if (item.reservations && item.reservations.length > 0) {
+        return total + item.reservations.reduce((reservationTotal, reservation) => 
+          reservationTotal + (reservation.roomType.pricePerNight * 
+            reservation.roomsBooked * 
+            Math.round((new Date(reservation.checkOutDate).getTime() - 
+              new Date(reservation.checkInDate).getTime()) / (1000 * 60 * 60 * 24))
+          ), 0);
+      }
+      // Use stored price for flights and other booking types
+      return total + item.totalPrice;
+    }, 0);
   };
 
   const fetchHotelSuggestions = async (city: string) => {
@@ -312,6 +324,22 @@ export default function CartPage() {
                                 <p className="text-sm">
                                   {reservation.roomsBooked} room
                                   {reservation.roomsBooked > 1 ? "s" : ""}
+                                </p>
+                                <p className="text-sm text-muted-foreground mt-2">
+                                  ${reservation.roomType.pricePerNight} × {reservation.roomsBooked} room
+                                  {reservation.roomsBooked > 1 ? "s" : ""} × {
+                                    Math.round((new Date(reservation.checkOutDate).getTime() - 
+                                    new Date(reservation.checkInDate).getTime()) / (1000 * 60 * 60 * 24))
+                                  } night
+                                  {Math.round((new Date(reservation.checkOutDate).getTime() - 
+                                    new Date(reservation.checkInDate).getTime()) / (1000 * 60 * 60 * 24)) > 1 ? "s" : ""}
+                                </p>
+                                <p className="font-medium">
+                                  ${(reservation.roomType.pricePerNight * 
+                                     reservation.roomsBooked * 
+                                     Math.round((new Date(reservation.checkOutDate).getTime() - 
+                                       new Date(reservation.checkInDate).getTime()) / (1000 * 60 * 60 * 24))
+                                    ).toFixed(2)}
                                 </p>
                               </div>
                             </div>
@@ -533,7 +561,15 @@ export default function CartPage() {
                     <div className="text-right">
                       <p className="text-sm text-muted-foreground">Total</p>
                       <p className="text-xl font-bold">
-                        ${item.totalPrice.toFixed(2)}
+                        ${item.reservations && item.reservations.length > 0 
+                          ? (item.reservations.reduce((total, reservation) => 
+                              total + (reservation.roomType.pricePerNight * 
+                                reservation.roomsBooked * 
+                                Math.round((new Date(reservation.checkOutDate).getTime() - 
+                                  new Date(reservation.checkInDate).getTime()) / (1000 * 60 * 60 * 24))
+                              ), 0)).toFixed(2)
+                          : item.totalPrice.toFixed(2)
+                        }
                       </p>
                     </div>
                   </div>
@@ -565,7 +601,16 @@ export default function CartPage() {
                           {item.flights && item.flights.length > 0 && "Flight "}
                           Booking #{item.id.substring(0, 6)}
                         </span>
-                        <span>${item.totalPrice.toFixed(2)}</span>
+                        <span>${
+                          item.reservations && item.reservations.length > 0 
+                            ? (item.reservations.reduce((total, reservation) => 
+                                total + (reservation.roomType.pricePerNight * 
+                                  reservation.roomsBooked * 
+                                  Math.round((new Date(reservation.checkOutDate).getTime() - 
+                                    new Date(reservation.checkInDate).getTime()) / (1000 * 60 * 60 * 24))
+                                ), 0)).toFixed(2)
+                            : item.totalPrice.toFixed(2)
+                        }</span>
                       </div>
                     ))}
                   </div>

@@ -10,6 +10,7 @@ import {
 } from "react";
 import { bookingAPI } from "@/app/services/api";
 import { useAuth } from "../auth/auth-context";
+import { useNotifications } from "../notifications/notification-context";
 
 // Define the types
 export type FlightBooking = {
@@ -190,6 +191,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated } = useAuth();
+  const { refreshNotifications } = useNotifications();
 
   // Debug function to visualize booking structure
   const logBookingStructure = (booking) => {
@@ -303,6 +305,24 @@ export function BookingProvider({ children }: { children: ReactNode }) {
       const response = await bookingAPI.getBookings({ status: "PENDING" });
       console.log(`📊 Fetched ${response?.length || 0} cart items`);
 
+      // Helper function to calculate hotel total price
+      const calculateHotelTotalPrice = (hotelInfo) => {
+        // Handle new structure (reservations with checkInDate/checkOutDate)
+        if (hotelInfo.checkInDate && hotelInfo.checkOutDate) {
+          const nights = Math.ceil(
+            (new Date(hotelInfo.checkOutDate).getTime() - 
+             new Date(hotelInfo.checkInDate).getTime()) / 
+            (1000 * 60 * 60 * 24)
+          );
+          return hotelInfo.roomType?.pricePerNight * nights * hotelInfo.roomsBooked || 0;
+        } 
+        // Handle old structure (hotel with checkIn/checkOut/nights)
+        else if (hotelInfo.pricePerNight && hotelInfo.nights) {
+          return Number(hotelInfo.pricePerNight) * Number(hotelInfo.nights);
+        }
+        return hotelInfo.totalPrice || 0;
+      };
+
       // Detailed booking information
       if (response?.length) {
         console.group("📋 Cart Items Details");
@@ -312,10 +332,32 @@ export function BookingProvider({ children }: { children: ReactNode }) {
         });
         console.groupEnd();
       }
-
-      // Process flight data to ensure all legs are properly structured
+      
+      // Process response to ensure hotel total prices are calculated correctly
       const processedResponse = response.map((item) => {
-        // If the item has flights, ensure they're properly structured for rendering
+        const itemCopy = {...item};
+
+        // Calculate total price for hotel reservations if present
+        if (itemCopy.reservations && itemCopy.reservations.length > 0) {
+          // Add calculated total price to each reservation
+          itemCopy.reservations = itemCopy.reservations.map(reservation => {
+            const calculatedTotalPrice = calculateHotelTotalPrice(reservation);
+            return {
+              ...reservation,
+              calculatedTotalPrice
+            };
+          });
+        }
+        
+        // Calculate total price for legacy hotel format
+        if (itemCopy.hotel && !itemCopy.hotel.totalPrice) {
+          itemCopy.hotel = {
+            ...itemCopy.hotel,
+            totalPrice: calculateHotelTotalPrice(itemCopy.hotel)
+          };
+        }
+
+        // Process flight data to ensure all legs are properly structured
         if (item.flights && item.flights.length > 0) {
           // Sort flights by departure time to ensure correct order
           const sortedFlights = [...item.flights].sort(
@@ -560,6 +602,10 @@ export function BookingProvider({ children }: { children: ReactNode }) {
 
       // Refresh bookings after cancellation to get updated data
       await refreshBookings();
+
+      // Refresh notifications after cancellation
+      await refreshNotifications();
+
       return true;
     } catch (error) {
       console.error("Error cancelling booking:", error);
