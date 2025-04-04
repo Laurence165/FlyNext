@@ -132,12 +132,7 @@ export default function HotelsList() {
                     Edit
                   </Link>
                 </Button>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={`/hotel-owner/hotels/rooms?id=${hotel.id}`}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Add Room Types
-                  </Link>
-                </Button>
+
                 <Button variant="destructive" size="sm" onClick={() => handleDeleteHotel(hotel.id)}>
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete

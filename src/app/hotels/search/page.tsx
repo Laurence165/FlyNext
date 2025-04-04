@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 import { hotelAPI } from "@/app/services/api"
 import { useAuth } from "@/app/components/auth/auth-context"
 import { useBooking } from "@/app/components/booking/booking-context"
@@ -84,15 +84,6 @@ export default function HotelSearchResults() {
   }, [searchParams])
 
   const handleBookNow = (hotel: Hotel) => {
-    console.log('Selected Hotel Data:', {
-      hotel,
-      roomTypes: hotel.roomTypes.map(room => ({
-        ...room,
-        amenities: room.amenities,
-        images: room.images
-      }))
-    })
-
     if (!isAuthenticated) {
       // Store booking intent in session storage
       sessionStorage.setItem('bookingIntent', JSON.stringify({
