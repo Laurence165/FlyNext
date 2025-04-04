@@ -1,55 +1,64 @@
 // Base API URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api` : "/api";
-import axios from "axios"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
+  : "/api";
+import axios from "axios";
 
-import { Hotel, AddRoomType } from "@/types"
+import { Hotel, AddRoomType } from "@/types";
 
-let isRefreshing = false
-let failedQueue: { resolve: (token: string) => void; reject: (error: any) => void }[] = []
+let isRefreshing = false;
+let failedQueue: {
+  resolve: (token: string) => void;
+  reject: (error: any) => void;
+}[] = [];
 
 const processQueue = (error: any, token: string | null = null) => {
-  failedQueue.forEach(prom => {
+  failedQueue.forEach((prom) => {
     if (error) {
-      prom.reject(error)
+      prom.reject(error);
     } else {
-      prom.resolve(token!)
+      prom.resolve(token!);
     }
-  })
-  failedQueue = []
-}
+  });
+  failedQueue = [];
+};
 
 async function refreshToken() {
   try {
-    const refreshToken = localStorage.getItem('refreshToken')
-    if (!refreshToken) throw new Error('No refresh token available')
+    const refreshToken = localStorage.getItem("refreshToken");
+    if (!refreshToken) throw new Error("No refresh token available");
 
     const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ refreshToken }),
-    })
+    });
 
-    if (!response.ok) throw new Error('Token refresh failed')
+    if (!response.ok) throw new Error("Token refresh failed");
 
-    const data = await response.json()
-    localStorage.setItem('token', data.accessToken)
+    const data = await response.json();
+    localStorage.setItem("token", data.accessToken);
     if (data.refreshToken) {
-      localStorage.setItem('refreshToken', data.refreshToken)
+      localStorage.setItem("refreshToken", data.refreshToken);
     }
-    return data.accessToken
+    return data.accessToken;
   } catch (error) {
-    localStorage.removeItem('token')
-    localStorage.removeItem('refreshToken')
-    window.location.href = '/login'
-    throw error
+    localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
+    window.location.href = "/login";
+    throw error;
   }
 }
 
 // Generic fetch function with improved error handling
-async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  let token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+async function fetchAPI<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  let token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   const executeRequest = async (accessToken: string | null) => {
     const defaultHeaders = {
@@ -86,7 +95,7 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
           return new Promise((resolve, reject) => {
             failedQueue.push({ resolve, reject });
           }).then(() => {
-            return executeRequest(localStorage.getItem('token'));
+            return executeRequest(localStorage.getItem("token"));
           });
         }
       }
@@ -103,7 +112,9 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
         }
 
         const error = await response.json();
-        const errorMessage = error.message || `API Error: ${response.status} ${response.statusText}`;
+        const errorMessage =
+          error.message ||
+          `API Error: ${response.status} ${response.statusText}`;
         console.error(errorMessage, error); // Log detailed error
         throw new Error(errorMessage);
       }
@@ -119,14 +130,16 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
   return executeRequest(token);
 }
 
-
 // Auth API
 export const authAPI = {
   login: (email: string, password: string) =>
-    fetchAPI<{ user: any; accessToken: string; refreshToken: string }>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    }),
+    fetchAPI<{ user: any; accessToken: string; refreshToken: string }>(
+      "/auth/login",
+      {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      }
+    ),
 
   signup: (userData: any) =>
     fetchAPI<{ user: any; token: string }>("/auth/signup", {
@@ -141,28 +154,29 @@ export const authAPI = {
       method: "PUT",
       body: JSON.stringify(userData),
     }),
-
-  
-}
+};
 
 // Booking API
 export const bookingAPI = {
   getBookings: async (params: { status?: string }) => {
     const queryParams = new URLSearchParams();
     if (params.status) {
-      queryParams.append('status', params.status);
+      queryParams.append("status", params.status);
     }
-    
-    const response = await fetch(`${API_BASE_URL}/bookings?${queryParams.toString()}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+
+    const response = await fetch(
+      `${API_BASE_URL}/bookings?${queryParams.toString()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
       }
-    });
-    
+    );
+
     if (!response.ok) {
-      throw new Error('Failed to fetch bookings');
+      throw new Error("Failed to fetch bookings");
     }
-    
+
     return response.json();
   },
   getHotelBookings: () => fetchAPI<any>("/bookings/getHotelBookings"),
@@ -171,23 +185,22 @@ export const bookingAPI = {
 
   createBooking: (bookingData: {
     flightBooking?: {
-      afsFlightId: string
-      departureTime: string
-      arrivalTime: string
-      source: string
-      destination: string
-      price: number
-    }[]
+      afsFlightId: string;
+      departureTime: string;
+      arrivalTime: string;
+      source: string;
+      destination: string;
+      price: number;
+    }[];
     hotelBooking?: {
-      hotelId: string,
-      roomTypeId: string,
-      checkInDate: string
-      checkOutDate: string
-      roomsRequested: number
-      price: number
-  
-    }
-    totalPrice: number
+      hotelId: string;
+      roomTypeId: string;
+      checkInDate: string;
+      checkOutDate: string;
+      roomsRequested: number;
+      price: number;
+    };
+    totalPrice: number;
   }) => {
     console.log("Creating booking with data:", bookingData);
     return fetchAPI<any>("/bookings", {
@@ -201,7 +214,7 @@ export const bookingAPI = {
       method: "POST",
       body: JSON.stringify({ type }),
     }),
-}
+};
 
 // Hotel API
 export const hotelAPI = {
@@ -214,33 +227,37 @@ export const hotelAPI = {
     maxPrice?: string;
   }) => {
     const queryParams = new URLSearchParams();
-    console.log("MIN PRICE" + filters.minPrice)
+    console.log("MIN PRICE" + filters.minPrice);
 
-    if (filters.city) queryParams.append('city', filters.city);
-    if (filters.minStarRating) queryParams.append('minStarRating', filters.minStarRating.toString());
-    if (filters.checkIn) queryParams.append('checkIn', filters.checkIn);
-    if (filters.checkOut) queryParams.append('checkOut', filters.checkOut);
-    if (filters.minPrice) queryParams.append('minPrice', filters.minPrice.toString());
-    if (filters.maxPrice) queryParams.append('maxPrice', filters.maxPrice.toString());
-    console.log(queryParams)
+    if (filters.city) queryParams.append("city", filters.city);
+    if (filters.minStarRating)
+      queryParams.append("minStarRating", filters.minStarRating.toString());
+    if (filters.checkIn) queryParams.append("checkIn", filters.checkIn);
+    if (filters.checkOut) queryParams.append("checkOut", filters.checkOut);
+    if (filters.minPrice)
+      queryParams.append("minPrice", filters.minPrice.toString());
+    if (filters.maxPrice)
+      queryParams.append("maxPrice", filters.maxPrice.toString());
+    console.log(queryParams);
     return fetchAPI(`/hotels?${queryParams.toString()}`);
   },
 
   getHotelById: (id: string) => fetchAPI<any>(`/hotels/${id}`),
-  updateHotelById: (id: string, hotelData: any) => fetchAPI(`/hotels/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(hotelData),
-  }),
+  updateHotelById: (id: string, hotelData: any) =>
+    fetchAPI(`/hotels/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(hotelData),
+    }),
 
   getFeaturedHotels: () => fetchAPI<any[]>("/hotels"),
 
   bookHotel: (bookingData: {
-    hotelId: string
-    checkIn: string
-    checkOut: string
-    guests: number
-    roomTypeId: string
-  }) => 
+    hotelId: string;
+    checkIn: string;
+    checkOut: string;
+    guests: number;
+    roomTypeId: string;
+  }) =>
     fetchAPI<any>("/api/bookings", {
       method: "POST",
       body: JSON.stringify({
@@ -249,52 +266,56 @@ export const hotelAPI = {
       }),
     }),
 
-  getMyHotels: () => fetchAPI<Hotel[]>('/hotels/my-hotels'),
+  getMyHotels: () => fetchAPI<Hotel[]>("/hotels/my-hotels"),
 
   deleteHotels: async (id: string) => {
     return fetchAPI(`/hotels`, {
-      method: 'DELETE',
+      method: "DELETE",
       body: JSON.stringify({ id }),
     });
   },
-    
+
   //updateHotel: () => fetchAPI<Hotel[]>
 
-  addRoomTypes: (hotelId: string, roomType: AddRoomType) => 
+  addRoomTypes: (hotelId: string, roomType: AddRoomType) =>
     fetchAPI<any>(`/hotels/${hotelId}/roomTypes`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({
         name: roomType.name,
         pricePerNight: roomType.pricePerNight,
         amenities: roomType.amenities,
         images: roomType.images,
-        totalRooms: roomType.totalRooms
+        totalRooms: roomType.totalRooms,
       }),
     }),
 
-  getAllRoomTypes: (hotelId: string) => 
+  getAllRoomTypes: (hotelId: string) =>
     fetchAPI<AddRoomType[]>(`/hotels/${hotelId}/roomTypes`),
 
-  editRoomTypesByID: (hotelId: string, roomTypeId: string, roomType: AddRoomType) => 
+  editRoomTypesByID: (
+    hotelId: string,
+    roomTypeId: string,
+    roomType: AddRoomType
+  ) =>
     fetchAPI<AddRoomType>(`/hotels/${hotelId}/roomTypes/${roomTypeId}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(roomType),
     }),
 
-  deleteRoomTypesByID: (hotelId: string, roomTypeId: string) => 
+  deleteRoomTypesByID: (hotelId: string, roomTypeId: string) =>
     fetchAPI<void>(`/hotels/${hotelId}/roomTypes/${roomTypeId}`, {
-      method: 'DELETE',
+      method: "DELETE",
     }),
-}
+};
 
 // Flight API
 export const flightAPI = {
   searchFlights: async (params: {
-    origin: string
-    destination: string
-    date?: string
-    departDate?: string
-    returnDate?: string
+    origin: string;
+    destination: string;
+    date?: string;
+    departDate?: string;
+    returnDate?: string;
   }) => {
     // Check if it's a round trip search
     if (params.departDate && params.returnDate) {
@@ -302,32 +323,34 @@ export const flightAPI = {
         origin: params.origin,
         destination: params.destination,
         departDate: params.departDate,
-        returnDate: params.returnDate
-      }).toString()
-      return fetchAPI<{ outbound: any[], return: any[] }>(`/flights/roundtrip?${queryParams}`)
+        returnDate: params.returnDate,
+      }).toString();
+      return fetchAPI<{ outbound: any[]; return: any[] }>(
+        `/flights/roundtrip?${queryParams}`
+      );
     } else {
       // One-way search
       const queryParams = new URLSearchParams({
         origin: params.origin,
         destination: params.destination,
-        date: params.date || params.departDate!
-      }).toString()
-      return fetchAPI<{ results: any[] }>(`/flights/search?${queryParams}`)
+        date: params.date || params.departDate!,
+      }).toString();
+      return fetchAPI<{ results: any[] }>(`/flights/search?${queryParams}`);
     }
   },
 
   getFlightById: (id: string) => fetchAPI<any>(`/flights/${id}`),
-}
+};
 
 // Notification API
 export const notificationAPI = {
   getNotifications: async () => {
     try {
-      return await fetchAPI<any[]>("/notifications")
+      return await fetchAPI<any[]>("/notifications");
     } catch (error) {
-      console.error("Error in getNotifications:", error)
+      console.error("Error in getNotifications:", error);
       // Return empty array instead of throwing to make it easier to handle
-      return []
+      return [];
     }
   },
 
@@ -335,11 +358,11 @@ export const notificationAPI = {
     try {
       return await fetchAPI<void>(`/notifications/${id}`, {
         method: "PUT",
-      })
+      });
     } catch (error) {
-      console.error(`Error marking notification ${id} as read:`, error)
+      console.error(`Error marking notification ${id} as read:`, error);
       // Return empty object instead of throwing
-      return {}
+      return {};
     }
   },
 
@@ -354,46 +377,46 @@ export const notificationAPI = {
   //     return {}
   //   }
   // },
-}
+};
 
 // Checkout API
 export const checkoutAPI = {
   processPayment: (paymentData: {
-    bookingId: string
-    cardNumber: string
-    cardholderName: string
-    expiryDate: string
-    cvv: string
+    bookingId: string;
+    cardNumber: string;
+    cardholderName: string;
+    expiryDate: string;
+    cvv: string;
   }) => {
     return fetchAPI<{
-      success: boolean
-      message: string
+      success: boolean;
+      message: string;
       booking: {
-        id: string
-        status: string
-        totalPrice: number
-      }
+        id: string;
+        status: string;
+        totalPrice: number;
+      };
       invoice: {
-        id: string
-        pdfPath: string
-      }
+        id: string;
+        pdfPath: string;
+      };
     }>("/checkout", {
       method: "POST",
       body: JSON.stringify(paymentData),
-    })
-  }
-}
+    });
+  },
+};
 
 export const createHotelAPI = {
   createHotel: async (hotelData: any) => {
     const hotelDataWithLocation = {
       ...hotelData,
       latitude: 0,
-      longitude: 0
-    }
-    console.log(hotelDataWithLocation)
-    return fetchAPI('/hotels', {
-      method: 'POST',
+      longitude: 0,
+    };
+    console.log(hotelDataWithLocation);
+    return fetchAPI("/hotels", {
+      method: "POST",
       body: JSON.stringify(hotelDataWithLocation),
     });
   },
@@ -404,19 +427,19 @@ export const profileAPI = {
   // ... existing profile methods ...
 
   uploadProfileImage: async (formData: FormData) => {
-
     //const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
     const response = await fetch(`${API_BASE_URL}/auth/upload-images`, {
       method: "POST",
       body: formData,
-    })
+    });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.error || `Upload failed: ${response.statusText}`)
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.error || `Upload failed: ${response.statusText}`
+      );
     }
 
-    return response
+    return response;
   },
-}
-
+};
