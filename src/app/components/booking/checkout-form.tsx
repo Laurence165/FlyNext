@@ -2,11 +2,16 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { useToast } from "@/components/ui/use-toast"
+import { CreditCard, Loader2 } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useToast } from "@/components/ui/use-toast"
+import { useBooking } from "./booking-context"
 import {
   Form,
   FormControl,
@@ -15,21 +20,18 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { checkoutAPI } from "@/app/services/api"
-import { useBooking } from "./booking-context"
 
 const formSchema = z.object({
-  cardholderName: z.string().min(2, "Cardholder name is required"),
-  cardNumber: z.string().regex(/^\d{13,19}$/, "Invalid card number"),
-  expiryDate: z.string().regex(/^(0[1-9]|1[0-2])\/(\d{2}|\d{4})$/, "Invalid expiry date (MM/YY or MM/YYYY)"),
-  cvv: z.string().regex(/^\d{3,4}$/, "Invalid CVV")
+  cardholderName: z.string().min(3, "Cardholder name is required"),
+  cardNumber: z.string().min(16, "Card number must be at least 16 digits"),
+  expiryDate: z.string().regex(/^\d{2}\/\d{2}$/, "Expiry date must be in MM/YY format"),
+  cvv: z.string().regex(/^\d{3,4}$/, "CVV must be 3 or 4 digits")
 })
 
 export default function CheckoutForm() {
   const { toast } = useToast()
   const router = useRouter()
-  const { cart, clearCart } = useBooking()
+  const { cart, clearCart, fetchCart } = useBooking()
   const [isProcessing, setIsProcessing] = useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -43,91 +45,93 @@ export default function CheckoutForm() {
   })
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsProcessing(true)
+    console.log("Checkout form submitted with values:", {
+      cardholderName: values.cardholderName,
+      cardNumberLength: values.cardNumber.replace(/\s/g, '').length,
+      expiryDate: values.expiryDate,
+      cvvLength: values.cvv.length
+    });
+    
     try {
-      setIsProcessing(true)
-      console.log("Starting checkout process...");
+      // Get all booking IDs from cart
+      const bookingIds = cart.map(item => item.id)
+      console.log("Booking IDs to process:", bookingIds);
+      console.log("Cart items:", cart.length);
       
-      // Get the booking ID from the cart
-      if (!cart || cart.length === 0) {
-        console.log("Cart is empty:", cart);
-        toast({
-          title: "Error",
-          description: "No items in cart",
-          variant: "destructive",
-        })
-        return
-      }
+      // Process payment
+      console.log("Sending checkout request...");
+      const token = localStorage.getItem('token');
+      console.log("Token exists:", !!token);
       
-      console.log("Cart contents:", cart);
-      
-      // Assuming the booking ID is stored in the cart items
-      const bookingId = cart[0].bookingId;
-      console.log("Extracted bookingId:", bookingId);
-      
-      if (!bookingId) {
-        toast({
-          title: "Error",
-          description: "Invalid booking information",
-          variant: "destructive",
-        })
-        return
-      }
-      
-      // Log the request payload
-      const payload = {
-        bookingId,
-        ...values
-      };
-      console.log("Sending payload to API:", payload);
-      
-      // Make a direct fetch call to the API endpoint
-      console.log("Fetching /api/checkout...");
-      const response = await fetch("/api/checkout", {
-        method: "POST",
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(payload),
-      });
+        body: JSON.stringify({
+          bookingIds,
+          cardNumber: values.cardNumber.replace(/\s/g, ''),
+          cardholderName: values.cardholderName,
+          expiryDate: values.expiryDate,
+          cvv: values.cvv
+        })
+      })
       
-      console.log("API response status:", response.status);
-      
-      // Try to parse the response regardless of status code
-      let responseData;
-      try {
-        responseData = await response.json();
-        console.log("API response data:", responseData);
-      } catch (parseError) {
-        console.error("Failed to parse response:", parseError);
-        responseData = null;
-      }
+      console.log("Checkout response status:", response.status);
+      const data = await response.json()
+      console.log("Checkout response data:", data);
       
       if (!response.ok) {
-        throw new Error(responseData?.error || `Request failed with status ${response.status}`);
+        console.log("Checkout failed with error:", data.error);
+        throw new Error(data.error || 'Payment failed')
       }
       
-      if (responseData?.success) {
-        console.log("Payment successful, clearing cart and redirecting...");
-        toast({
-          title: "Payment Successful",
-          description: "Your booking has been confirmed. You can now view and print your invoice.",
-        })
-        clearCart()
+      // Clear cart after successful payment
+      console.log("Payment successful, clearing cart");
+      clearCart();
+
+      // Add a small delay before fetching cart to ensure backend has updated
+      setTimeout(async () => {
+        await fetchCart();
         
-        // Force a hard navigation to ensure the page refreshes
-        window.location.href = "/bookings";
-      } else {
-        throw new Error("API returned success: false or undefined");
-      }
+        // Redirect to bookings page after cart is refreshed
+        console.log("Redirecting to bookings page");
+        router.push('/bookings');
+      }, 500);
+
+      toast({
+        title: "Payment Successful",
+        description: "Your booking has been confirmed. You will receive a confirmation email shortly.",
+      })
     } catch (error) {
-      console.error('Payment error:', error);
+      console.error('Payment error:', error)
       toast({
         title: "Payment Failed",
-        description: error instanceof Error ? error.message : "Failed to process payment",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "An error occurred during payment processing.",
+        variant: "destructive"
       })
     } finally {
-      setIsProcessing(false);
+      setIsProcessing(false)
+    }
+  }
+
+  // Format card number with spaces
+  const formatCardNumber = (value: string) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '')
+    const matches = v.match(/\d{4,16}/g)
+    const match = matches && matches[0] || ''
+    const parts = []
+
+    for (let i = 0, len = match.length; i < len; i += 4) {
+      parts.push(match.substring(i, i + 4))
+    }
+
+    if (parts.length) {
+      return parts.join(' ')
+    } else {
+      return value
     }
   }
 
@@ -155,7 +159,14 @@ export default function CheckoutForm() {
             <FormItem>
               <FormLabel>Card Number</FormLabel>
               <FormControl>
-                <Input placeholder="4111 1111 1111 1111" {...field} />
+                <Input 
+                  placeholder="4111 1111 1111 1111" 
+                  {...field} 
+                  onChange={(e) => {
+                    field.onChange(formatCardNumber(e.target.value))
+                  }}
+                  maxLength={19}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -170,7 +181,18 @@ export default function CheckoutForm() {
               <FormItem>
                 <FormLabel>Expiry Date</FormLabel>
                 <FormControl>
-                  <Input placeholder="MM/YY" {...field} />
+                  <Input 
+                    placeholder="MM/YY" 
+                    {...field} 
+                    maxLength={5}
+                    onChange={(e) => {
+                      let value = e.target.value.replace(/\D/g, '')
+                      if (value.length > 2) {
+                        value = value.substring(0, 2) + '/' + value.substring(2, 4)
+                      }
+                      field.onChange(value)
+                    }}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -184,7 +206,15 @@ export default function CheckoutForm() {
               <FormItem>
                 <FormLabel>CVV</FormLabel>
                 <FormControl>
-                  <Input type="password" placeholder="123" {...field} />
+                  <Input 
+                    type="password" 
+                    placeholder="123" 
+                    {...field} 
+                    maxLength={4}
+                    onChange={(e) => {
+                      field.onChange(e.target.value.replace(/\D/g, ''))
+                    }}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -192,12 +222,18 @@ export default function CheckoutForm() {
           />
         </div>
 
-        <Button 
-          type="submit" 
-          className="w-full" 
-          disabled={isProcessing}
-        >
-          {isProcessing ? "Processing..." : "Pay Now"}
+        <Button type="submit" className="w-full" disabled={isProcessing}>
+          {isProcessing ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Processing...
+            </>
+          ) : (
+            <>
+              <CreditCard className="mr-2 h-4 w-4" />
+              Pay Now
+            </>
+          )}
         </Button>
       </form>
     </Form>

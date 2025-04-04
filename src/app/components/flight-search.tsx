@@ -6,6 +6,7 @@ import { format } from "date-fns"
 import { Airport } from "@prisma/client"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/app/components/auth/auth-context"
+import { useBooking } from "./booking/booking-context"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -15,7 +16,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { flightAPI } from "../services/api"
-import { bookingAPI } from "../services/api"
 import { useToast } from "@/components/ui/use-toast"
 
 export default function FlightSearch() {
@@ -32,6 +32,11 @@ export default function FlightSearch() {
   const [error, setError] = useState(null)
   const [flights, setFlights] = useState<{ results?: any[], outbound?: any[], return?: any[] }>({})
   const [airports, setAirports] = useState<Airport[]>([])
+  const { addToCart } = useBooking()
+  const { toast } = useToast()
+  const router = useRouter()
+  const { isAuthenticated } = useAuth()
+  const [isBooking, setIsBooking] = useState(false)
 
   useEffect(() => {
     async function fetchAirports() {
@@ -74,6 +79,82 @@ export default function FlightSearch() {
       setIsLoading(false)
     }
   }
+
+  const handleBookFlight = async (result: any) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Login Required",
+        description: "Please login to book flights",
+        duration: 5000,
+      });
+      
+      const searchState = {
+        from,
+        to,
+        departureDate,
+        returnDate,
+        tripType,
+        selectedFlight: result,
+      };
+      sessionStorage.setItem("pendingFlightSearch", JSON.stringify(searchState));
+      router.push(`/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      return;
+    }
+
+    try {
+      setIsBooking(true);
+
+      // Compose booking data depending on tripType
+      const flightBookings = result.flights.map((flight: any) => ({
+        afsFlightId: flight.id,
+        departureTime: flight.departureTime,
+        arrivalTime: flight.arrivalTime,
+        source: flight.origin.code,
+        destination: flight.destination.code,
+        price: flight.price,
+      }));
+
+      const totalPrice = flightBookings.reduce((sum, f) => sum + f.price, 0);
+
+      const bookingData: any = {
+        totalPrice,
+      };
+
+      if (tripType === "oneWay") {
+        bookingData.flightBooking = flightBookings[0]; // send as object
+      } else {
+        bookingData.flightBooking = flightBookings; // send as array
+      }
+
+      console.log("Booking payload:", bookingData);
+
+      // Use the context method instead of direct API call
+      const booking = await addToCart(bookingData);
+
+      if (booking) {
+        toast({
+          title: "Success!",
+          description: "Flight added to your cart. Proceed to checkout to complete your booking.",
+          duration: 5000,
+        });
+
+        sessionStorage.removeItem("pendingFlightSearch");
+        router.push("/cart");
+      } else {
+        throw new Error("Failed to add flight to cart");
+      }
+    } catch (error) {
+      console.error("Error booking flight:", error);
+      toast({
+        title: "Booking Failed",
+        description: "There was an error adding the flight to your cart. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    } finally {
+      setIsBooking(false);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -285,6 +366,7 @@ export default function FlightSearch() {
           tripType={tripType}
           flights={flights}
           airports={airports}
+          onBookFlight={handleBookFlight}
         />
       )}
     </div>
@@ -329,9 +411,10 @@ interface FlightResultsProps {
     return?: any[]
   }
   airports: Airport[]
+  onBookFlight: (result: any) => Promise<void>
 }
 
-function FlightResults({ from, to, departureDate, returnDate, tripType, flights, airports }: FlightResultsProps) {
+function FlightResults({ from, to, departureDate, returnDate, tripType, flights, airports, onBookFlight }: FlightResultsProps) {
   const { toast } = useToast()
   const router = useRouter()
   const { isAuthenticated } = useAuth()
@@ -342,83 +425,14 @@ function FlightResults({ from, to, departureDate, returnDate, tripType, flights,
 
   const flightResults = flights.results || []
 
-  const handleBookFlight = async (result: any) => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Login Required",
-        description: "Please login to book flights",
-        duration: 5000,
-      });
-      
-      const searchState = {
-        from,
-        to,
-        departureDate,
-        returnDate,
-        tripType,
-        selectedFlight: result,
-      };
-      sessionStorage.setItem("pendingFlightSearch", JSON.stringify(searchState));
-      router.push(`/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`);
-      return;
-    }
-
+  const handleBookClick = async (result: any) => {
+    setIsBooking(true);
     try {
-      setIsBooking(true);
-
-      // Compose booking data depending on tripType
-      const flightBookings = result.flights.map((flight: any) => ({
-        afsFlightId: flight.id,
-        departureTime: flight.departureTime,
-        arrivalTime: flight.arrivalTime,
-        source: flight.origin.code,
-        destination: flight.destination.code,
-        price: flight.price,
-      }));
-
-      const totalPrice = flightBookings.reduce((sum, f) => sum + f.price, 0);
-
-      // ✅ If one-way -> send only one flightBooking object
-      // ✅ If round-trip -> send both in an array separately
-      // Your backend probably wants: 
-      // { flightBooking: { ... }, totalPrice }  for one-way
-      // { flightBooking: [ {...}, {...} ], totalPrice } for round-trip
-
-      const bookingData: any = {
-        totalPrice,
-      };
-
-      if (tripType === "oneWay") {
-        bookingData.flightBooking = flightBookings[0]; // send as object
-      } else {
-        bookingData.flightBooking = flightBookings; // send as array
-      }
-
-      console.log("Booking payload:", bookingData);
-
-      await bookingAPI.createBooking(bookingData);
-
-      toast({
-        title: "Success!",
-        description: "Your flight has been successfully booked.",
-        duration: 5000,
-      });
-
-      sessionStorage.removeItem("pendingFlightSearch");
-      router.push("/bookings"); // or wherever you list bookings
-    } catch (error) {
-      console.error("Error booking flight:", error);
-      toast({
-        title: "Booking Failed",
-        description: "There was an error booking your flight. Please try again.",
-        variant: "destructive",
-        duration: 5000,
-      });
+      await onBookFlight(result);
     } finally {
       setIsBooking(false);
     }
-};
-
+  };
 
   return (
     <div className="space-y-6">
@@ -472,7 +486,7 @@ function FlightResults({ from, to, departureDate, returnDate, tripType, flights,
                     variant="outline" 
                     size="sm" 
                     className="mt-2"
-                    onClick={() => handleBookFlight(result)}
+                    onClick={() => handleBookClick(result)}
                     disabled={isBooking}
                   >
                     {isBooking ? (

@@ -102,7 +102,24 @@ export const authAPI = {
 
 // Booking API
 export const bookingAPI = {
-  getBookings: () => fetchAPI<any[]>("/bookings"),
+  getBookings: async (params: { status?: string }) => {
+    const queryParams = new URLSearchParams();
+    if (params.status) {
+      queryParams.append('status', params.status);
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/bookings?${queryParams.toString()}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch bookings');
+    }
+    
+    return response.json();
+  },
 
   getBookingById: (id: string) => fetchAPI<any>(`/bookings/${id}`),
 
@@ -117,11 +134,13 @@ export const bookingAPI = {
     }[]
     hotelBooking?: any
     totalPrice: number
-  }) =>
-    fetchAPI<any>("/bookings", {
+  }) => {
+    console.log("Creating booking with data:", bookingData);
+    return fetchAPI<any>("/bookings", {
       method: "POST",
       body: JSON.stringify(bookingData),
-    }),
+    });
+  },
 
   cancelBooking: (id: string, type?: "flight" | "hotel") =>
     fetchAPI<any>(`/bookings/${id}/cancel`, {

@@ -39,7 +39,7 @@ export default function HotelSearchResults() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { toast } = useToast()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, userId } = useAuth()
   const { addToCart } = useBooking()
   const [hotels, setHotels] = useState<Hotel[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -144,15 +144,39 @@ export default function HotelSearchResults() {
         roomTypeId: roomTypeId,
       }
 
+      // Find the selected room type details
+      const selectedRoom = selectedHotel.roomTypes.find(room => room.id === roomTypeId)
+      
+      if (!selectedRoom) {
+        throw new Error("Selected room type not found")
+      }
+
+      // Create a new booking (this should be done in your backend)
+      const newBooking = await createBooking({
+        userId: userId,
+        totalPrice: selectedRoom.pricePerNight,
+        status: "PENDING", // Set the booking status to PENDING
+      });
+
+      // Add the reservation with status PENDING
       await addToCart({
+        id: `${newBooking.id}-${roomTypeId}`, // Unique ID for the cart item
         type: "hotel",
-        hotel: {
-          ...selectedHotel,
-          roomTypeId,
-          checkIn: bookingData.checkIn,
-          checkOut: bookingData.checkOut,
-          guests: bookingData.guests,
-        },
+        totalPrice: selectedRoom.pricePerNight, // Set total price based on room type
+        reservations: [{
+          id: selectedRoom.id,
+          roomType: {
+            hotel: {
+              name: selectedHotel.name,
+            },
+            name: selectedRoom.name,
+          },
+          checkInDate: bookingData.checkIn,
+          checkOutDate: bookingData.checkOut,
+          roomsBooked: bookingData.guests, // Assuming guests represent rooms booked
+          status: "PENDING", // Set the reservation status to PENDING
+          bookingId: newBooking.id, // Link the reservation to the new booking
+        }],
       })
 
       toast({
@@ -161,7 +185,7 @@ export default function HotelSearchResults() {
       })
 
       setIsDialogOpen(false)
-      router.push('/checkout')
+      router.push('/cart')
     } catch (error) {
       console.error('Error booking hotel:', error)
       toast({

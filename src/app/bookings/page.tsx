@@ -23,7 +23,7 @@ import { Separator } from "@/components/ui/separator"
 import PDFGenerator from "../components/booking/pdf-generator"
 
 export default function BookingsPage() {
-  const { bookings, cancelBooking } = useBooking()
+  const { bookings, cancelBooking, refreshBookings } = useBooking()
   const { user, isLoading } = useAuth()
   const router = useRouter()
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
@@ -34,6 +34,11 @@ export default function BookingsPage() {
   useEffect(() => {
     // No redirect needed for frontend testing
   }, [])
+
+  useEffect(() => {
+    // Refresh bookings when the page loads
+    refreshBookings();
+  }, [refreshBookings]);
 
   const handleCancelBooking = async () => {
     if (!selectedBooking) return

@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
           where: { id: existingBookingId },
           data: {
             totalPrice: finalTotalPrice,
-            status: "CONFIRMED"
+            status: "PENDING"
           },
           include: { flights: true, reservations: true } 
         });
@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
           data: {
             userId: user.id,
             totalPrice: finalTotalPrice,
-            status: "CONFIRMED",
+            status: "PENDING",
           },
           include: { flights: true, reservations: true } 
         });
@@ -185,21 +185,10 @@ export async function POST(req: NextRequest) {
             checkInDate: hotelReservation.checkInDate,
             checkOutDate: hotelReservation.checkOutDate,
             roomsBooked: hotelReservation.roomsRequested,
-            status: "CONFIRMED",
+            status: "PENDING",
             bookingId: booking.id
           }
         });
-        
-        // Create notification for hotel owner
-        if (hotelReservation.hotelOwnerId) {
-          await prisma.notification.create({
-            data: {
-              userId: hotelReservation.hotelOwnerId,
-              message: `New reservation at your hotel: ${hotelReservation.hotelName}`,
-              type: "HOTEL_BOOKING"
-            }
-          });
-        }
       }
       
       // Create flight records if applicable
@@ -212,35 +201,14 @@ export async function POST(req: NextRequest) {
             arrivalTime: flight.arrivalTime,
             source: flight.source,
             destination: flight.destination,
-            status: "CONFIRMED",
+            status: "PENDING",
             bookingId: booking.id
           }
         });
         flights.push(newFlight);
       }
       
-      // Create notification for user
-      let message = existingBookingId 
-        ? "Items added to your booking: " 
-        : "Booking confirmed for ";
-        
-      if (hotelReservation) {
-        message += `${hotelReservation.roomsRequested} room(s) at ${hotelReservation.hotelName} from ${hotelReservation.checkInDate.toLocaleDateString()} to ${hotelReservation.checkOutDate.toLocaleDateString()}`;
-      }
-      if (flightDetails.length > 0) {
-        if (hotelReservation) message += " and ";
-        message += `${flightDetails.length} flight${flightDetails.length > 1 ? 's' : ''}`;
-      }
-      
-      const notification = await prisma.notification.create({
-        data: {
-          userId: user.id,
-          message,
-          type: "BOOKING_CONFIRMED"
-        }
-      });
-      
-      return { booking, reservation, flights, notification };
+      return { booking, reservation, flights };
     });
 
     // Update room availability after successful booking
@@ -254,7 +222,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-      message: existingBookingId ? "Items added to booking successfully" : "Booking successful",
+      message: existingBookingId ? "Items added to cart successfully" : "Items added to cart successfully",
       booking: result.booking,
       reservation: result.reservation,
       flights: result.flights

@@ -1,7 +1,8 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react"
 import { bookingAPI } from "@/app/services/api"
+import { useAuth } from "../auth/auth-context"
 
 // Define the types
 export type FlightBooking = {
@@ -54,20 +55,27 @@ export type Booking = {
   cardLastFour: string
 }
 
-type BookingContextType = {
-  cart: CartItem[]
-  bookings: Booking[]
-  addToCart: (item: CartItem) => void
-  removeFromCart: (type: "flight" | "hotel") => void
+type BookingItem = {
+  id: string
+  totalPrice: number
+  status: string
+  createdAt: string
+  updatedAt: string
+  reservations?: any[]
+  flights?: any[]
+}
+
+interface BookingContextType {
+  cart: BookingItem[]
+  bookings: BookingItem[]
+  loading: boolean
+  error: string | null
+  fetchCart: () => Promise<void>
+  addToCart: (bookingData: any) => Promise<BookingItem | null>
+  removeFromCart: (bookingId: string) => Promise<boolean>
   clearCart: () => void
-  createBooking: (paymentDetails: {
-    cardNumber: string
-    cardHolder: string
-    expiryDate: string
-    cvv: string
-  }) => Promise<Booking>
-  cancelBooking: (bookingId: string, type?: "flight" | "hotel") => Promise<void>
-  getBookingById: (id: string) => Booking | undefined
+  refreshBookings: () => Promise<void>
+  cancelBooking: (bookingId: string, type?: "flight" | "hotel") => Promise<boolean>
 }
 
 const BookingContext = createContext<BookingContextType | undefined>(undefined)
@@ -164,202 +172,170 @@ const MOCK_BOOKINGS: Booking[] = [
   // Other mock bookings...
 ]
 
-export const BookingProvider = ({ children }: { children: ReactNode }) => {
-  const [cart, setCart] = useState<CartItem[]>([])
-  const [bookings, setBookings] = useState<Booking[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [apiAvailable, setApiAvailable] = useState(true)
+export function BookingProvider({ children }: { children: ReactNode }) {
+  const [cart, setCart] = useState<BookingItem[]>([])
+  const [bookings, setBookings] = useState<BookingItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { isAuthenticated } = useAuth()
 
-  // Load cart from localStorage on mount
+  // Use useCallback to memoize the fetchCart function
+  const fetchCart = useCallback(async () => {
+    if (!isAuthenticated) return
+    
+    try {
+      setLoading(true)
+      setError(null)
+      
+      console.log("Fetching cart with status: PENDING");
+      const response = await bookingAPI.getBookings({ status: 'PENDING' })
+      console.log("Fetched cart items:", response);
+      console.log("Cart items statuses:", response.map(item => item.status));
+      
+      // Filter out any non-PENDING items just to be safe
+      const pendingItems = response.filter(item => item.status === "PENDING");
+      console.log("Filtered pending items:", pendingItems.length);
+      
+      setCart(pendingItems)
+    } catch (err) {
+      console.error("Error fetching cart:", err)
+      setError("Failed to load cart items")
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
+  // Fetch cart items when authenticated
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedCart = localStorage.getItem("cart")
-      if (savedCart) {
-        try {
-          setCart(JSON.parse(savedCart))
-        } catch (e) {
-          console.error("Failed to parse cart from localStorage", e)
-          // Initialize with example items for frontend testing
-          setCart(EXAMPLE_CART_ITEMS)
-          localStorage.setItem("cart", JSON.stringify(EXAMPLE_CART_ITEMS))
-        }
-      } else {
-        // Initialize with example items for frontend testing
-        setCart(EXAMPLE_CART_ITEMS)
-        localStorage.setItem("cart", JSON.stringify(EXAMPLE_CART_ITEMS))
+    if (isAuthenticated) {
+      fetchCart()
+    }
+  }, [isAuthenticated, fetchCart])
+
+  const addToCart = async (bookingData: any): Promise<BookingItem | null> => {
+    if (!isAuthenticated) return null
+    
+    try {
+      setLoading(true)
+      setError(null)
+      
+      console.log("Adding to cart:", bookingData);
+      const response = await bookingAPI.createBooking(bookingData)
+      console.log("Add to cart response:", response);
+      
+      // Add the new booking to cart
+      if (response && response.booking) {
+        console.log("Adding booking to cart:", response.booking);
+        setCart(prevCart => [...prevCart, response.booking])
+        return response.booking
       }
+      return null
+    } catch (err) {
+      console.error("Error adding to cart:", err)
+      setError("Failed to add item to cart")
+      return null
+    } finally {
+      setLoading(false)
     }
-  }, [])
-
-  // Fetch bookings from API
-  useEffect(() => {
-    const fetchBookings = async () => {
-      setIsLoading(true)
-      try {
-        const fetchedBookings = await bookingAPI.getBookings()
-        setBookings(fetchedBookings)
-        setApiAvailable(true)
-      } catch (error) {
-        console.error("Error fetching bookings:", error)
-        // Fallback to mock data if API fails
-        setBookings(MOCK_BOOKINGS)
-        setApiAvailable(false)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchBookings()
-  }, [])
-
-  // Save cart to localStorage whenever it changes
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("cart", JSON.stringify(cart))
-    }
-  }, [cart])
-
-  const addToCart = (item: CartItem) => {
-    setCart((prevCart) => {
-      // Remove any existing item of the same type
-      const filteredCart = prevCart.filter((cartItem) => cartItem.type !== item.type)
-      // Add the new item
-      return [...filteredCart, item]
-    })
   }
 
-  const removeFromCart = (type: "flight" | "hotel") => {
-    setCart((prevCart) => prevCart.filter((item) => item.type !== type))
+  const removeFromCart = async (bookingId: string): Promise<boolean> => {
+    if (!isAuthenticated) return false
+    
+    try {
+      setLoading(true)
+      setError(null)
+      
+      await bookingAPI.cancelBooking(bookingId)
+      
+      // Remove the booking from cart
+      setCart(prevCart => prevCart.filter(item => item.id !== bookingId))
+      return true
+    } catch (err) {
+      console.error("Error removing from cart:", err)
+      setError("Failed to remove item from cart")
+      return false
+    } finally {
+      setLoading(false)
+    }
   }
 
   const clearCart = () => {
     setCart([])
   }
 
-  const createBooking = async (paymentDetails: {
-    cardNumber: string
-    cardHolder: string
-    expiryDate: string
-    cvv: string
-  }): Promise<Booking> => {
+  // Modify refreshBookings to update the bookings state
+  const refreshBookings = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
     try {
-      // Prepare booking data from cart
-      const bookingData = {
-        flight: cart.find((item) => item.type === "flight")?.flight,
-        hotel: cart.find((item) => item.type === "hotel")?.hotel,
-        paymentDetails: {
-          cardNumber: paymentDetails.cardNumber,
-          cardHolder: paymentDetails.cardHolder,
-          expiryDate: paymentDetails.expiryDate,
-          cvv: paymentDetails.cvv,
-        },
-      }
-
-      let newBooking: Booking
-
-      if (apiAvailable) {
-        // Create booking via API if available
-        newBooking = await bookingAPI.createBooking(bookingData)
-      } else {
-        // Create mock booking if API is not available
-        newBooking = {
-          id: `B${'2020-01-01'}`,
-          userId: "1",
-          flight: bookingData.flight as FlightBooking,
-          hotel: bookingData.hotel as HotelBooking,
-          totalPrice: (bookingData.flight?.price || 0) + (bookingData.hotel?.totalPrice || 0),
-          status: "confirmed",
-          bookingDate: new Date().toISOString().split("T")[0],
-          paymentMethod: "Credit Card",
-          cardLastFour: paymentDetails.cardNumber.slice(-4),
+      setLoading(true);
+      const response = await fetch('/api/bookings', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setBookings(data); // Update bookings instead of cart
       }
-
-      // Add to local bookings state
-      setBookings((prev) => [...prev, newBooking])
-
-      // Clear cart after successful booking
-      clearCart()
-
-      return newBooking
     } catch (error) {
-      console.error("Error creating booking:", error)
-      throw error
+      console.error('Error refreshing bookings:', error);
+    } finally {
+      setLoading(false);
     }
-  }
+  }, [isAuthenticated]);
 
-  const cancelBooking = async (bookingId: string, type?: "flight" | "hotel"): Promise<void> => {
+  // Add cancelBooking function
+  const cancelBooking = async (bookingId: string, type?: "flight" | "hotel"): Promise<boolean> => {
+    if (!isAuthenticated) return false;
+    
     try {
-      if (apiAvailable) {
-        // Cancel booking via API if available
-        await bookingAPI.cancelBooking(bookingId, type)
+      setLoading(true);
+      // Call your API to cancel the booking
+      const response = await fetch(`/api/bookings/${bookingId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ type })
+      });
+      
+      if (response.ok) {
+        // Refresh bookings after cancellation
+        await refreshBookings();
+        return true;
       }
-
-      // Update local bookings state regardless
-      setBookings((prev) => {
-        return prev.map((booking) => {
-          if (booking.id === bookingId) {
-            if (!type) {
-              // Cancel entire booking
-              return { ...booking, status: "cancelled" }
-            } else if (type === "flight" && booking.flight) {
-              // Cancel only flight
-              const updatedBooking = {
-                ...booking,
-                flight: undefined,
-                totalPrice: booking.hotel ? booking.hotel.totalPrice : 0,
-              }
-              // If no hotel either, cancel the entire booking
-              if (!booking.hotel) {
-                updatedBooking.status = "cancelled"
-              }
-              return updatedBooking
-            } else if (type === "hotel" && booking.hotel) {
-              // Cancel only hotel
-              const updatedBooking = {
-                ...booking,
-                hotel: undefined,
-                totalPrice: booking.flight ? booking.flight.price : 0,
-              }
-              // If no flight either, cancel the entire booking
-              if (!booking.flight) {
-                updatedBooking.status = "cancelled"
-              }
-              return updatedBooking
-            }
-          }
-          return booking
-        })
-      })
+      return false;
     } catch (error) {
-      console.error("Error cancelling booking:", error)
-      throw error
+      console.error('Error cancelling booking:', error);
+      return false;
+    } finally {
+      setLoading(false);
     }
-  }
-
-  const getBookingById = (id: string): Booking | undefined => {
-    return bookings.find((booking) => booking.id === id)
-  }
+  };
 
   return (
-    <BookingContext.Provider
-      value={{
-        cart,
-        bookings,
-        addToCart,
-        removeFromCart,
-        clearCart,
-        createBooking,
-        cancelBooking,
-        getBookingById,
-      }}
-    >
+    <BookingContext.Provider value={{ 
+      cart, 
+      bookings,
+      loading, 
+      error, 
+      fetchCart,
+      addToCart,
+      removeFromCart,
+      clearCart,
+      refreshBookings,
+      cancelBooking,
+    }}>
       {children}
     </BookingContext.Provider>
   )
 }
 
-export const useBooking = () => {
+export function useBooking() {
   const context = useContext(BookingContext)
   if (context === undefined) {
     throw new Error("useBooking must be used within a BookingProvider")
