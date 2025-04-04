@@ -26,6 +26,9 @@ export default function HotelSearch() {
   const [checkIn, setCheckIn] = useState<Date>()
   const [checkOut, setCheckOut] = useState<Date>()
   const [guests, setGuests] = useState(1)
+  const [minStarRating, setMinStarRating] = useState(0)
+  const [minPrice, setMinPrice] = useState(0)
+  const [maxPrice, setMaxPrice] = useState(0)
   const [isDestinationOpen, setIsDestinationOpen] = useState(false)
   const [cities, setCities] = useState<City[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -50,24 +53,27 @@ export default function HotelSearch() {
     try {
       setIsLoading(true)
       
-      // Format search parameters to match the existing API route expectations
       const searchParams = {
-        city: selectedCity.name, // The API route expects 'city' parameter
+        city: selectedCity.name,
         checkIn: format(checkIn, 'yyyy-MM-dd'),
         checkOut: format(checkOut, 'yyyy-MM-dd'),
-        guests: guests.toString()
+        guests: guests.toString(),
+        minStarRating: minStarRating,
+        minPrice: minPrice,
+        maxPrice: maxPrice
       }
 
-      // Store the search results in sessionStorage for the results page
       const hotels = await hotelAPI.getHotels(searchParams)
       sessionStorage.setItem('hotelSearchResults', JSON.stringify(hotels))
       
-      // Navigate to search results with search parameters
       const urlParams = new URLSearchParams({
         ...searchParams,
         cityId: selectedCity.id,
-        country: selectedCity.country
-      })
+        country: selectedCity.country,
+        minStarRating: minStarRating.toString(),
+        minPrice: minPrice.toString(),
+        maxPrice: maxPrice.toString()
+      } as Record<string, string>)
       
       router.push(`/hotels/search?${urlParams.toString()}`)
     } catch (error) {
@@ -163,13 +169,44 @@ export default function HotelSearch() {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Guests</Label>
-            <Input
-              type="number"
-              value={guests}
-              onChange={(e) => setGuests(Number(e.target.value))}
-            />
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Guests</Label>
+              <Input
+                type="number"
+                value={guests}
+                onChange={(e) => setGuests(Number(e.target.value))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Min Star Rating</Label>
+              <Input
+                type="number"
+                min="0"
+                max="5"
+                value={minStarRating}
+                onChange={(e) => setMinStarRating(Number(e.target.value))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Price Range</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  placeholder="Min"
+                  value={minPrice}
+                  onChange={(e) => setMinPrice(Number(e.target.value))}
+                />
+                <Input
+                  type="number"
+                  placeholder="Max"
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(Number(e.target.value))}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="self-end">

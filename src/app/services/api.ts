@@ -151,29 +151,24 @@ export const bookingAPI = {
 
 // Hotel API
 export const hotelAPI = {
-  getHotels: (params?: {
-    city?: string
-    checkIn?: string
-    checkOut?: string
-    guests?: string
-    minPrice?: string
-    maxPrice?: string
-    minStarRating?: string
-    maxStarRating?: string
+  getHotels: async (filters: {
+    city?: string;
+    minStarRating?: number;
+    checkIn?: string;
+    checkOut?: string;
+    minPrice?: number;
+    maxPrice?: number;
   }) => {
-    // Build query string to match existing API route expectations
-    const searchParams = new URLSearchParams()
+    const queryParams = new URLSearchParams();
     
-    if (params) {
-      // Only add parameters that are defined
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          searchParams.append(key, value)
-        }
-      })
-    }
-    
-    return fetchAPI<any[]>(`/hotels${searchParams.toString() ? `?${searchParams.toString()}` : ''}`)
+    if (filters.city) queryParams.append('city', filters.city);
+    if (filters.minStarRating) queryParams.append('minStarRating', filters.minStarRating.toString());
+    if (filters.checkIn) queryParams.append('checkIn', filters.checkIn);
+    if (filters.checkOut) queryParams.append('checkOut', filters.checkOut);
+    if (filters.minPrice) queryParams.append('minPrice', filters.minPrice.toString());
+    if (filters.maxPrice) queryParams.append('maxPrice', filters.maxPrice.toString());
+
+    return fetchAPI(`/hotels?${queryParams.toString()}`);
   },
 
   getHotelById: (id: string) => fetchAPI<any>(`/hotels/${id}`),
