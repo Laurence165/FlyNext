@@ -2,8 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Plane, Hotel, X } from "lucide-react";
+import {
+  Calendar,
+  Plane,
+  Hotel,
+  X,
+  Clock,
+  MapPin,
+  CalendarDays,
+  User,
+  Package,
+} from "lucide-react";
 import Link from "next/link";
+import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +23,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -55,13 +67,11 @@ export default function BookingsPage() {
   const [cancelType, setCancelType] = useState<"flight" | "hotel" | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
 
-  // For frontend testing purposes, we'll skip the authentication check
   useEffect(() => {
     // No redirect needed for frontend testing
   }, []);
 
   useEffect(() => {
-    // Refresh bookings when the page loads
     refreshBookings();
   }, [refreshBookings]);
 
@@ -82,7 +92,6 @@ export default function BookingsPage() {
             : "The booking has been cancelled successfully.",
         });
 
-        // Refresh bookings list
         await refreshBookings();
       } else {
         throw new Error("Failed to cancel booking");
@@ -95,7 +104,6 @@ export default function BookingsPage() {
         variant: "destructive",
       });
     } finally {
-      // Always reset these states to ensure dialogs close properly
       setSelectedBooking(null);
       setCancelType(null);
       setIsCancelling(false);
@@ -108,13 +116,10 @@ export default function BookingsPage() {
     );
   }
 
-  // Use a default user ID for frontend testing purposes if user is null
   const userId = user?.id || "1";
 
-  // Filter bookings for current user
   const userBookings = bookings.filter((booking) => booking.userId === userId);
 
-  // Updated categorization: Active = CONFIRMED or PENDING, Past = CANCELLED
   const activeBookings = userBookings.filter(
     (booking) =>
       booking.status.toUpperCase() === "CONFIRMED" ||
@@ -200,7 +205,6 @@ export default function BookingsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Booking Details Dialog */}
       <Dialog
         open={!!selectedBooking && !cancelType}
         onOpenChange={(open) => !open && setSelectedBooking(null)}
@@ -456,7 +460,6 @@ export default function BookingsPage() {
                                 "The booking has been cancelled successfully.",
                             });
                             await refreshBookings();
-                            // Close the dialog
                             setSelectedBooking(null);
                           }
                         } catch (error) {
@@ -481,7 +484,6 @@ export default function BookingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Cancel Confirmation Dialog */}
       <Dialog
         open={!!selectedBooking && !!cancelType}
         onOpenChange={(open) => !open && setCancelType(null)}
@@ -526,84 +528,380 @@ function BookingCard({
   onCancel,
   isPast = false,
 }: BookingCardProps) {
+  console.log("Booking data:", booking);
+
+  const hasNewStructure =
+    booking.hasOwnProperty("flights") || booking.hasOwnProperty("reservations");
+
+  let flightInfo = null;
+  let hotelInfo = null;
+
+  if (hasNewStructure) {
+    flightInfo =
+      booking.flights && booking.flights.length > 0 ? booking.flights[0] : null;
+    hotelInfo =
+      booking.reservations && booking.reservations.length > 0
+        ? booking.reservations[0]
+        : null;
+  } else {
+    flightInfo = booking.flight;
+    hotelInfo = booking.hotel;
+  }
+
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="text-lg">Booking #{booking.id}</CardTitle>
-            <CardDescription>{booking.bookingDate}</CardDescription>
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-2 border-b">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-primary" />
+            <div>
+              <CardTitle className="text-lg">
+                Booking #
+                {typeof booking.id === "string"
+                  ? booking.id.substring(0, 8)
+                  : booking.id}
+              </CardTitle>
+              <CardDescription>
+                {booking.bookingDate || booking.createdAt
+                  ? new Date(
+                      booking.bookingDate || booking.createdAt
+                    ).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })
+                  : "Date not available"}
+              </CardDescription>
+            </div>
           </div>
           <Badge
             variant="outline"
             className={getStatusBadgeStyle(booking.status)}
           >
-            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+            {booking.status.charAt(0).toUpperCase() +
+              booking.status.slice(1).toLowerCase()}
           </Badge>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {booking.flight && (
-            <div className="flex justify-between items-start">
-              <div className="flex items-start space-x-2">
-                <Plane className="h-5 w-5 mt-0.5 text-primary" />
-                <div>
-                  <p className="font-medium">
-                    {booking.flight.departureCode} to{" "}
-                    {booking.flight.arrivalCode}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {booking.flight.departureDate}
-                    {booking.flight.returnDate &&
-                      ` - ${booking.flight.returnDate}`}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {booking.flight.airline} - {booking.flight.flightNumber}
-                  </p>
+
+      <CardContent className="pt-4 pb-2 space-y-6">
+        {flightInfo && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-lg font-medium">
+              <Plane className="h-5 w-5 text-primary" />
+              <h3>Flight Booking</h3>
+            </div>
+
+            <div className="border rounded-md overflow-hidden bg-muted/30">
+              <div className="p-4">
+                <div className="flex flex-col md:flex-row justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={getStatusBadgeStyle(booking.status)}
+                    >
+                      {booking.status}
+                    </Badge>
+                    <span className="text-sm font-medium">
+                      {hasNewStructure ? (
+                        <>
+                          {flightInfo.source} → {flightInfo.destination}
+                        </>
+                      ) : (
+                        <>
+                          {flightInfo.departureCode} → {flightInfo.arrivalCode}
+                          {flightInfo.tripType === "roundTrip" && (
+                            <span className="ml-2 text-xs bg-muted-foreground/20 px-2 py-0.5 rounded">
+                              Round Trip
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1 md:mt-0">
+                    {hasNewStructure
+                      ? new Date(flightInfo.departureTime).toLocaleDateString(
+                          "en-US",
+                          {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          }
+                        )
+                      : flightInfo.departureDate}
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <div className="flex justify-between items-start">
+                    <div className="flex gap-3 items-start">
+                      <div className="text-base font-medium">
+                        {hasNewStructure
+                          ? format(new Date(flightInfo.departureTime), "HH:mm")
+                          : flightInfo.departureTime}
+                      </div>
+                      <div className="flex flex-col items-center mt-1">
+                        <div className="text-xs text-muted-foreground">
+                          {hasNewStructure
+                            ? (() => {
+                                const durationMs =
+                                  new Date(flightInfo.arrivalTime).getTime() -
+                                  new Date(flightInfo.departureTime).getTime();
+                                const hours = Math.floor(
+                                  durationMs / (1000 * 60 * 60)
+                                );
+                                const minutes = Math.floor(
+                                  (durationMs % (1000 * 60 * 60)) / (1000 * 60)
+                                );
+                                return `${
+                                  hours ? hours + "h " : ""
+                                }${minutes}m`;
+                              })()
+                            : flightInfo.duration || "Direct"}
+                        </div>
+                        <div className="relative w-16 my-1">
+                          <div className="h-[2px] bg-muted-foreground/30 w-full"></div>
+                          <div className="absolute right-0 h-2 w-2 rounded-full bg-muted-foreground top-1/2 -translate-y-1/2"></div>
+                        </div>
+                      </div>
+                      <div className="text-base font-medium">
+                        {hasNewStructure
+                          ? format(new Date(flightInfo.arrivalTime), "HH:mm")
+                          : flightInfo.arrivalTime}
+                      </div>
+                    </div>
+                    <div className="text-sm text-right">
+                      <p>
+                        {hasNewStructure ? (
+                          <>
+                            {flightInfo.source} → {flightInfo.destination}
+                          </>
+                        ) : (
+                          <>
+                            {flightInfo.departureCode} →{" "}
+                            {flightInfo.arrivalCode}
+                          </>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {hasNewStructure ? (
+                          <>Flight #{flightInfo.afsFlightId || flightInfo.id}</>
+                        ) : (
+                          <>
+                            {flightInfo.airline} • {flightInfo.flightNumber}
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {!hasNewStructure &&
+                  flightInfo.tripType === "roundTrip" &&
+                  flightInfo.returnDate && (
+                    <>
+                      <div className="ml-7 border-l-2 border-dashed border-muted-foreground/30 text-xs text-muted-foreground py-2 px-2">
+                        <CalendarDays className="h-3 w-3 inline mr-1" />
+                        <span>{flightInfo.returnDate}</span>
+                      </div>
+
+                      <div className="mb-3"></div>
+                    </>
+                  )}
+
+                <div className="mt-3 pt-3 border-t border-border flex justify-between items-center">
+                  <div className="flex items-center gap-2 text-sm">
+                    <User className="h-3.5 w-3.5" />
+                    <span>
+                      {hasNewStructure ? (
+                        "1 passenger"
+                      ) : (
+                        <>
+                          {flightInfo.passengers} passenger
+                          {flightInfo.passengers !== 1 ? "s" : ""}
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  <div className="text-sm font-medium">
+                    $
+                    {hasNewStructure
+                      ? flightInfo.price || booking.totalPrice
+                      : flightInfo.price}
+                  </div>
                 </div>
               </div>
-              <p className="font-medium">${booking.flight.price}</p>
-            </div>
-          )}
-
-          {booking.hotel && (
-            <div className="flex justify-between items-start">
-              <div className="flex items-start space-x-2">
-                <Hotel className="h-5 w-5 mt-0.5 text-primary" />
-                <div>
-                  <p className="font-medium">{booking.hotel.hotelName}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {booking.hotel.checkIn} - {booking.hotel.checkOut}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {booking.hotel.roomType} - {booking.hotel.nights} nights
-                  </p>
-                </div>
-              </div>
-              <p className="font-medium">${booking.hotel.totalPrice}</p>
-            </div>
-          )}
-
-          <div className="flex justify-between items-center pt-2">
-            <p className="font-medium">Total: ${booking.totalPrice}</p>
-            <div className="flex space-x-2">
-              <Button variant="outline" onClick={onViewDetails}>
-                View Details
-              </Button>
-
-              {!isPast &&
-                booking.status.toUpperCase() !== "CANCELLED" &&
-                onCancel && (
-                  <Button variant="destructive" onClick={() => onCancel(null)}>
-                    <X className="mr-2 h-4 w-4" />
-                    Cancel
-                  </Button>
-                )}
             </div>
           </div>
-        </div>
+        )}
+
+        {hotelInfo && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-lg font-medium">
+              <Hotel className="h-5 w-5 text-primary" />
+              <h3>Hotel Reservation</h3>
+            </div>
+
+            <Card className="bg-muted/30 border-muted">
+              <CardContent className="p-4">
+                <div className="flex flex-col md:flex-row justify-between">
+                  <div className="space-y-1">
+                    {hasNewStructure ? (
+                      <>
+                        <p className="font-medium">
+                          {hotelInfo.roomType?.hotel?.name || "Hotel"}
+                        </p>
+                        <p className="text-sm">
+                          {hotelInfo.roomType?.name || "Room"}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-medium">{hotelInfo.hotelName}</p>
+                        <p className="text-sm">{hotelInfo.roomType}</p>
+                      </>
+                    )}
+                    <Badge
+                      variant="outline"
+                      className={getStatusBadgeStyle(booking.status)}
+                    >
+                      {booking.status}
+                    </Badge>
+                  </div>
+
+                  <div className="flex flex-col items-start md:items-end mt-2 md:mt-0 space-y-1">
+                    <div className="flex items-center gap-1">
+                      <CalendarDays className="h-3 w-3 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">
+                        {hasNewStructure ? (
+                          <>
+                            {format(
+                              new Date(hotelInfo.checkInDate),
+                              "MMM d, yyyy"
+                            )}{" "}
+                            to{" "}
+                            {format(
+                              new Date(hotelInfo.checkOutDate),
+                              "MMM d, yyyy"
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {hotelInfo.checkIn} to {hotelInfo.checkOut}
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <p className="text-sm">
+                      {hasNewStructure ? (
+                        <>
+                          {Math.floor(
+                            (new Date(hotelInfo.checkOutDate).getTime() -
+                              new Date(hotelInfo.checkInDate).getTime()) /
+                              (1000 * 60 * 60 * 24)
+                          )}{" "}
+                          night(s), {hotelInfo.roomsBooked} room(s)
+                        </>
+                      ) : (
+                        <>
+                          {hotelInfo.nights} night
+                          {hotelInfo.nights > 1 ? "s" : ""},{hotelInfo.guests}{" "}
+                          guest
+                          {hotelInfo.guests > 1 ? "s" : ""}
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-border flex justify-between items-center">
+                  <p className="text-sm">
+                    {hasNewStructure ? (
+                      <span className="text-muted-foreground">Room Price</span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        ${hotelInfo.pricePerNight} per night ×{" "}
+                        {hotelInfo.nights} night
+                        {hotelInfo.nights > 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </p>
+                  <p className="font-medium">
+                    $
+                    {hasNewStructure
+                      ? hotelInfo.totalPrice || booking.totalPrice
+                      : hotelInfo.totalPrice}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {!flightInfo && !hotelInfo && (
+          <div className="bg-muted/30 p-4 rounded-lg py-8">
+            <div className="text-center mb-4">
+              <Package className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+              <p className="font-medium">Complete Booking Package</p>
+              <p className="text-sm text-muted-foreground mb-2">
+                This booking may include multiple items
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between py-1 border-b border-dashed border-border">
+                <span className="text-sm text-muted-foreground">Status</span>
+                <span className="font-medium">{booking.status}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-dashed border-border">
+                <span className="text-sm text-muted-foreground">
+                  Booking Date
+                </span>
+                <span className="font-medium">
+                  {new Date(
+                    booking.bookingDate || booking.createdAt || Date.now()
+                  ).toLocaleDateString()}
+                </span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-sm text-muted-foreground">Reference</span>
+                <span className="font-medium">
+                  #
+                  {typeof booking.id === "string"
+                    ? booking.id.substring(0, 8)
+                    : booking.id}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </CardContent>
+
+      <CardFooter className="border-t bg-muted/10 p-4">
+        <div className="flex justify-between items-center w-full">
+          <div>
+            <p className="text-sm text-muted-foreground">Total Amount</p>
+            <p className="text-lg font-semibold">${booking.totalPrice}</p>
+          </div>
+
+          <div className="flex space-x-2">
+            <Button variant="outline" onClick={onViewDetails}>
+              View Details
+            </Button>
+
+            {!isPast &&
+              booking.status.toUpperCase() !== "CANCELLED" &&
+              onCancel && (
+                <Button variant="destructive" onClick={() => onCancel(null)}>
+                  <X className="mr-2 h-4 w-4" />
+                  Cancel
+                </Button>
+              )}
+          </div>
+        </div>
+      </CardFooter>
     </Card>
   );
 }

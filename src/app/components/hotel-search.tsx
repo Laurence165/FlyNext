@@ -1,88 +1,103 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Search, MapPin } from "lucide-react"
-import { format } from "date-fns"
-import { hotelAPI } from "@/app/services/api"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Search, MapPin } from "lucide-react";
+import { format } from "date-fns";
+import { hotelAPI } from "@/app/services/api";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface City {
-  id: string
-  name: string
-  country: string
+  id: string;
+  name: string;
+  country: string;
 }
 
 export default function HotelSearch() {
-  const router = useRouter()
-  const [selectedCity, setSelectedCity] = useState<City | null>(null)
-  const [checkIn, setCheckIn] = useState<Date>()
-  const [checkOut, setCheckOut] = useState<Date>()
-  const [guests, setGuests] = useState(1)
-  const [minStarRating, setMinStarRating] = useState(0)
-  const [minPrice, setMinPrice] = useState(0)
-  const [maxPrice, setMaxPrice] = useState(0)
-  const [isDestinationOpen, setIsDestinationOpen] = useState(false)
-  const [cities, setCities] = useState<City[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter();
+  const [selectedCity, setSelectedCity] = useState<City | null>(null);
+  const [checkIn, setCheckIn] = useState<Date>();
+  const [checkOut, setCheckOut] = useState<Date>();
+  const [guests, setGuests] = useState(1);
+  const [minStarRating, setMinStarRating] = useState(0);
+  const [minPrice, setMinPrice] = useState(0);
+  const [maxPrice, setMaxPrice] = useState(0);
+  const [isDestinationOpen, setIsDestinationOpen] = useState(false);
+  const [cities, setCities] = useState<City[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const fetchCities = async () => {
       try {
-        const response = await fetch('/api/cities')
-        const data = await response.json()
-        setCities(data)
+        const response = await fetch("/api/cities");
+        const data = await response.json();
+        setCities(data);
       } catch (error) {
-        console.error('Error fetching cities:', error)
+        console.error("Error fetching cities:", error);
       }
-    }
+    };
 
-    fetchCities()
-  }, [])
+    fetchCities();
+  }, []);
 
   const handleSearch = async () => {
-    if (!selectedCity || !checkIn || !checkOut) return
-    
+    if (!selectedCity || !checkIn || !checkOut) return;
+
     try {
-      setIsLoading(true)
-      
+      setIsLoading(true);
+
       const searchParams: Record<string, string> = {
         city: selectedCity.name,
         cityId: selectedCity.id,
         country: selectedCity.country,
-        checkIn: format(checkIn!, 'yyyy-MM-dd'),
-        checkOut: format(checkOut!, 'yyyy-MM-dd'),
-        guests: guests.toString()
-      }
+        checkIn: format(checkIn!, "yyyy-MM-dd"),
+        checkOut: format(checkOut!, "yyyy-MM-dd"),
+        guests: guests.toString(),
+      };
 
       // Add all price and rating params, converting to strings
-      if (minPrice >= 0){searchParams.minPrice = minPrice.toString()}
-      
-      if (maxPrice > 0){searchParams.maxPrice = maxPrice.toString()}
-      if (minStarRating > 0) {
-        searchParams.minStarRating = minStarRating.toString()
+      if (minPrice >= 0) {
+        searchParams.minPrice = minPrice.toString();
       }
 
-      console.log('Search params:', searchParams)
+      if (maxPrice > 0) {
+        searchParams.maxPrice = maxPrice.toString();
+      }
+      if (minStarRating > 0) {
+        searchParams.minStarRating = minStarRating.toString();
+      }
+
+      console.log("Search params:", searchParams);
 
       //const hotels = await hotelAPI.getHotels(searchParams)
       //sessionStorage.setItem('hotelSearchResults', JSON.stringify(hotels))
-      
-      const urlParams = new URLSearchParams(searchParams)
-      router.push(`/hotels/search?${urlParams.toString()}`)
+
+      const urlParams = new URLSearchParams(searchParams);
+      router.push(`/hotels/search?${urlParams.toString()}`);
     } catch (error) {
-      console.error('Error searching hotels:', error)
+      console.error("Error searching hotels:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <Card>
@@ -90,7 +105,10 @@ export default function HotelSearch() {
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Destination</Label>
-            <Popover open={isDestinationOpen} onOpenChange={setIsDestinationOpen}>
+            <Popover
+              open={isDestinationOpen}
+              onOpenChange={setIsDestinationOpen}
+            >
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -98,7 +116,9 @@ export default function HotelSearch() {
                   aria-expanded={isDestinationOpen}
                   className="w-full justify-between"
                 >
-                  {selectedCity ? `${selectedCity.name}, ${selectedCity.country}` : "Search for a city..."}
+                  {selectedCity
+                    ? `${selectedCity.name}, ${selectedCity.country}`
+                    : "Search for a city..."}
                   <MapPin className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
@@ -113,8 +133,8 @@ export default function HotelSearch() {
                           key={city.id}
                           value={`${city.name}, ${city.country}`}
                           onSelect={(value) => {
-                            setSelectedCity(city)
-                            setIsDestinationOpen(false)
+                            setSelectedCity(city);
+                            setIsDestinationOpen(false);
                           }}
                         >
                           <MapPin className="mr-2 h-4 w-4" />
@@ -211,9 +231,9 @@ export default function HotelSearch() {
           </div>
 
           <div className="self-end">
-            <Button 
-              size="lg" 
-              className="w-full" 
+            <Button
+              size="lg"
+              className="w-full"
               onClick={handleSearch}
               disabled={!selectedCity || !checkIn || !checkOut || isLoading}
             >
@@ -230,6 +250,5 @@ export default function HotelSearch() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
-
