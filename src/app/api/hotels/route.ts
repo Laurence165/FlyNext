@@ -90,24 +90,36 @@ export async function POST(req: NextRequest) {
   const user = await authenticateToken(req);
   if (user instanceof Response) return user;
 
-  try {
-    const body = await req.json();
-    const {
-      name,
-      address,
-      city,
-      latitude,
-      longitude,
-      starRating,
-      logo,
-      images,
-    } = body;
-    if (!name || !address || !city || !latitude || !longitude || !starRating) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
-    }
+try {
+  const body = await req.json();
+  let {
+    name,
+    address,
+    city,
+    latitude,
+    longitude,
+    starRating,
+    logo,
+    images,
+  } = body;
+
+  // Check if latitude and longitude are missing, and set them to 0 if so
+  if (!latitude) {
+    latitude = 0;
+  }
+  if (!longitude) {
+    longitude = 0;
+  }
+
+  console.log(!name, !address, !city, !latitude, !longitude, !starRating);
+
+  // Validate required fields
+  if (!name || !address || !city || !starRating) {
+    return NextResponse.json(
+      { error: "Missing required fields" },
+      { status: 400 }
+    );
+  }
 
     // Validate images if provided
     if (

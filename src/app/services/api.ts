@@ -49,63 +49,74 @@ async function refreshToken() {
 
 // Generic fetch function with improved error handling
 async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  let token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  let token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   const executeRequest = async (accessToken: string | null) => {
     const defaultHeaders = {
       "Content-Type": "application/json",
       ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
-    }
+    };
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        ...defaultHeaders,
-        ...options.headers,
-      },
-    })
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers: {
+          ...defaultHeaders,
+          ...options.headers,
+        },
+      });
 
-    // Handle 401 Unauthorized
-    if (response.status === 401) {
-      if (!isRefreshing) {
-        isRefreshing = true
-        try {
-          const newToken = await refreshToken()
-          isRefreshing = false
-          processQueue(null, newToken)
-          // Retry the original request with new token
-          return executeRequest(newToken)
-        } catch (error) {
-          processQueue(error, null)
-          throw error
+      // Handle 401 Unauthorized
+      if (response.status === 401) {
+        if (!isRefreshing) {
+          isRefreshing = true;
+          try {
+            const newToken = await refreshToken();
+            isRefreshing = false;
+            processQueue(null, newToken);
+            // Retry the original request with new token
+            return executeRequest(newToken);
+          } catch (error) {
+            processQueue(error, null);
+            console.error("Token refresh failed:", error); // Log the error
+            throw error;
+          }
+        } else {
+          // Wait for the refresh to complete
+          return new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+          }).then(() => {
+            return executeRequest(localStorage.getItem('token'));
+          });
         }
-      } else {
-        // Wait for the refresh to complete
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject })
-        }).then(() => {
-          return executeRequest(localStorage.getItem('token'))
-        })
-      }
-    }
-
-    // Handle other responses
-    if (!response.ok) {
-      const contentType = response.headers.get("content-type")
-      const isJson = contentType && contentType.includes("application/json")
-
-      if (!isJson) {
-        throw new Error(`API Error: Endpoint ${endpoint} returned non-JSON response`)
       }
 
-      const error = await response.json()
-      throw new Error(error.message || `API Error: ${response.status} ${response.statusText}`)
+      // Handle other responses
+      if (!response.ok) {
+        const contentType = response.headers.get("content-type");
+        const isJson = contentType && contentType.includes("application/json");
+
+        if (!isJson) {
+          const errorMessage = `API Error: Endpoint ${endpoint} returned non-JSON response`;
+          console.error(errorMessage); // Log non-JSON error
+          throw new Error(errorMessage);
+        }
+
+        const error = await response.json();
+        const errorMessage = error.message || `API Error: ${response.status} ${response.statusText}`;
+        console.error(errorMessage, error); // Log detailed error
+        throw new Error(errorMessage);
+      }
+
+      return response.json();
+    } catch (error) {
+      // Catch any error during the fetch or response handling and log it
+      console.error("Fetch API Error:", error);
+      throw error; // Rethrow the error after logging
     }
+  };
 
-    return response.json()
-  }
-
-  return executeRequest(token)
+  return executeRequest(token);
 }
 
 
@@ -380,7 +391,7 @@ export const createHotelAPI = {
       latitude: 0,
       longitude: 0
     }
-    
+    console.log(hotelDataWithLocation)
     return fetchAPI('/hotels', {
       method: 'POST',
       body: JSON.stringify(hotelDataWithLocation),
