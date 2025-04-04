@@ -139,6 +139,23 @@ export default function HotelSearchResults() {
       if (!selectedRoom) {
         throw new Error("Selected room type not found")
       }
+
+      // Parse the check-in and check-out dates
+      const checkInDate = new Date(searchParams.get('checkIn')!);
+      const checkOutDate = new Date(searchParams.get('checkOut')!);
+
+      // Validate dates
+      if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+        throw new Error("Invalid check-in or check-out date");
+      }
+
+      // Calculate the number of nights
+      const timeDifference = checkOutDate.getTime() - checkInDate.getTime();
+      const numberOfNights = Math.ceil(timeDifference / (1000 * 3600 * 24)); // Convert milliseconds to days
+
+      // Calculate the total price
+      const totalPrice = selectedRoom.pricePerNight * numberOfNights * Number(searchParams.get('guests'));
+
   
       // Create booking with proper hotelBooking structure
       const newBooking = await bookingAPI.createBooking({
@@ -150,7 +167,7 @@ export default function HotelSearchResults() {
           roomsRequested: Number(searchParams.get('guests')),
           price: selectedRoom.pricePerNight
         },
-        totalPrice: selectedRoom.pricePerNight
+        totalPrice: totalPrice,
       })
       console.log(newBooking,newBooking.unavailableDates)
       if (newBooking.unavailableDates) {
@@ -180,6 +197,9 @@ export default function HotelSearchResults() {
           bookingId: newBooking.id,
         }],
       })
+      if (newBooking.error){
+        throw newBooking.error
+      }
   
       toast({
         title: "Success",
@@ -193,7 +213,7 @@ export default function HotelSearchResults() {
   
       toast({
         title: "Error",
-        description: error.message || "Failed to add hotel to cart. Please try again.",
+        description: "Not enough rooms available for this room type.",
         variant: "destructive",
       })
     } finally {

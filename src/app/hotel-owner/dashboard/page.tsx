@@ -18,6 +18,9 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { bookingAPI } from "@/app/services/api"
 import { useToast } from "@/components/ui/use-toast"
+import { hotelAPI } from "@/app/services/api"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 
 // Add interface for booking type
 interface Booking {
@@ -54,6 +57,13 @@ interface RoomType {
   images: { imageUrl: string }[]
 }
 
+interface Hotel {
+  id: string;
+  name: string;
+  logo?: string;
+  roomTypes: RoomType[];
+}
+
 export default function HotelOwnerDashboard() {
   const { user, isHotelOwner, isLoading } = useAuth()
   const router = useRouter()
@@ -66,6 +76,8 @@ export default function HotelOwnerDashboard() {
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const { toast } = useToast()
   const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [hotels, setHotels] = useState<Hotel[]>([])
+  const [roomsLoading, setRoomsLoading] = useState(true)
 
   // Fetch real bookings
   useEffect(() => {
@@ -84,6 +96,28 @@ export default function HotelOwnerDashboard() {
       fetchBookings()
     }
   }, [isHotelOwner])
+
+  useEffect(() => {
+    const fetchHotels = async () => {
+      try {
+        setRoomsLoading(true);
+        // Get availability for the selected date
+        const date = dateRange?.from 
+          ? format(dateRange.from, 'yyyy-MM-dd') 
+          : format(new Date(), 'yyyy-MM-dd');
+        const data = await hotelAPI.getAllHotelOwnerRoomTypes(date);
+        setHotels(data);
+      } catch (error) {
+        console.error('Error fetching hotels:', error);
+      } finally {
+        setRoomsLoading(false);
+      }
+    };
+
+    if (isHotelOwner) {
+      fetchHotels();
+    }
+  }, [isHotelOwner, dateRange?.from]);
 
   const [mounted, setMounted] = useState(false);
 
@@ -286,75 +320,121 @@ export default function HotelOwnerDashboard() {
         <TabsContent value="availability" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Room Availability</CardTitle>
-              <CardDescription>Current availability</CardDescription>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <CardTitle>Room Availability</CardTitle>
+                  <CardDescription>Check room availability by date</CardDescription>
+                </div>
+                <div className="w-full sm:w-auto">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full sm:w-[240px] justify-start text-left font-normal">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateRange?.from ? (
+                          format(dateRange.from, "PPP")
+                        ) : (
+                          <span>Pick a date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <CalendarComponent
+                        mode="single"
+                        selected={dateRange?.from}
+                        onSelect={(date) => setDateRange(date ? { from: date, to: date } : undefined)}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="border-t">
-                {mockRoomTypes.length > 0 ? (
+                {roomsLoading ? (
+                  <div className="p-4 text-center">Loading hotels...</div>
+                ) : hotels.length > 0 ? (
                   <div className="divide-y">
-                    {mockRoomTypes.map((roomType) => (
-                      <div key={roomType.id} className="p-4">
-                        <div className="flex flex-col md:flex-row gap-4">
-                          {/* Images Carousel */}
-                          <div className="w-full md:w-1/3 relative">
-                            <div className="aspect-video relative rounded-lg overflow-hidden">
-                              {roomType.images && roomType.images.length > 0 ? (
-                                <Image
-                                  src={roomType.images[0].imageUrl}
-                                  alt={roomType.name}
-                                  fill
-                                  className="object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full bg-muted flex items-center justify-center">
-                                  <ImageIcon className="h-12 w-12 text-muted-foreground" />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Room Details */}
-                          <div className="flex-1">
-                            <div className="flex justify-between items-start mb-2">
-                              <div>
-                                <h3 className="font-medium text-lg">{roomType.name}</h3>
-                                <p className="text-sm text-muted-foreground">
-                                  {roomType.availableRooms} of {roomType.totalRooms} available
-                                </p>
-                              </div>
-                              <p className="font-medium">${roomType.pricePerNight}/night</p>
-                            </div>
-
-                            {/* Amenities */}
-                            {roomType.amenities && roomType.amenities.length > 0 && (
-                              <div className="mt-2">
-                                <p className="text-sm font-medium mb-1">Amenities:</p>
-                                <div className="flex flex-wrap gap-2">
-                                  {roomType.amenities.map((amenity, index) => (
-                                    <Badge key={index} variant="secondary">
-                                      {amenity.amenity}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
+                    {hotels.map((hotel) => (
+                      <Card key={hotel.id} className="mb-6">
+                        <CardHeader>
+                          <div className="flex items-center gap-4">
+                            {hotel.logo && (
+                              <Image
+                                src={hotel.logo}
+                                alt={hotel.name}
+                                width={48}
+                                height={48}
+                                className="rounded-full"
+                              />
                             )}
-
-                            <div className="mt-4 flex justify-end">
-                              <Button variant="outline" size="sm" asChild>
-                                <Link href={`/hotel-owner/rooms/${roomType.id}`}>
-                                  Manage Room
-                                </Link>
-                              </Button>
-                            </div>
+                            <CardTitle>{hotel.name}</CardTitle>
                           </div>
-                        </div>
-                      </div>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          <div className="border-t">
+                            {hotel.roomTypes.map((roomType) => (
+                              <div key={roomType.id} className="p-4 border-b last:border-b-0 hover:bg-accent/5">
+                                <div className="flex flex-col md:flex-row gap-4 mb-4">
+                                  <div className="w-full md:w-1/3 relative">
+                                    <div className="aspect-video relative rounded-lg overflow-hidden">
+                                      {roomType.images && roomType.images.length > 0 ? (
+                                        <Image
+                                          src={roomType.images[0].imageUrl}
+                                          alt={roomType.name}
+                                          fill
+                                          className="object-cover"
+                                        />
+                                      ) : (
+                                        <div className="w-full h-full bg-muted flex items-center justify-center">
+                                          <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex justify-between items-start mb-2">
+                                      <div>
+                                        <h3 className="font-medium text-lg">{roomType.name}</h3>
+                                        <p className="text-sm text-muted-foreground">
+                                          {roomType.availableRooms} of {roomType.totalRooms} available
+                                        </p>
+                                      </div>
+                                      <p className="font-medium">${roomType.pricePerNight}/night</p>
+                                    </div>
+
+                                    {roomType.amenities && roomType.amenities.length > 0 && (
+                                      <div className="mt-2">
+                                        <p className="text-sm font-medium mb-1">Amenities:</p>
+                                        <div className="flex flex-wrap gap-2">
+                                          {roomType.amenities.map((amenity, index) => (
+                                            <Badge key={index} variant="secondary">
+                                              {amenity.amenity}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    <div className="mt-4 flex justify-end">
+                                      <Button variant="outline" size="sm" asChild>
+                                        <Link href={`/hotel-owner/hotels/edit?id=${hotel.id}`}>
+                                          Manage Room
+                                        </Link>
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
                 ) : (
                   <div className="p-4 text-center text-muted-foreground">
-                    No room types defined
+                    No hotels defined
                   </div>
                 )}
               </div>
@@ -365,74 +445,4 @@ export default function HotelOwnerDashboard() {
     </div>
   )
 }
-
-// Mock data
-const mockBookings = [
-  {
-    id: "1",
-    guestName: "Alice Johnson",
-    roomType: "Deluxe Double",
-    checkIn: "May 15, 2023",
-    checkOut: "May 18, 2023",
-    totalAmount: 450,
-    status: "Confirmed",
-  },
-  {
-    id: "2",
-    guestName: "Bob Smith",
-    roomType: "Executive Suite",
-    checkIn: "May 16, 2023",
-    checkOut: "May 20, 2023",
-    totalAmount: 1200,
-    status: "Confirmed",
-  },
-  {
-    id: "3",
-    guestName: "Carol Davis",
-    roomType: "Twin Room",
-    checkIn: "May 17, 2023",
-    checkOut: "May 19, 2023",
-    totalAmount: 320,
-    status: "Pending",
-  },
-]
-
-const mockRoomTypes = [
-  {
-    id: "1",
-    name: "Deluxe Double",
-    availableRooms: 8,
-    totalRooms: 10,
-    pricePerNight: 150,
-    amenities: [],
-    images: [],
-  },
-  {
-    id: "2",
-    name: "Executive Suite",
-    availableRooms: 3,
-    totalRooms: 5,
-    pricePerNight: 300,
-    amenities: [],
-    images: [],
-  },
-  {
-    id: "3",
-    name: "Twin Room",
-    availableRooms: 12,
-    totalRooms: 15,
-    pricePerNight: 120,
-    amenities: [],
-    images: [],
-  },
-  {
-    id: "4",
-    name: "Family Room",
-    availableRooms: 4,
-    totalRooms: 8,
-    pricePerNight: 200,
-    amenities: [],
-    images: [],
-  },
-]
 

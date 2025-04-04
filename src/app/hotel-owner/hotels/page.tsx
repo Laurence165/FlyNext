@@ -156,28 +156,3 @@ export default function HotelsList() {
     </div>
   )
 }
-
-// // Mock data
-// const mockHotels = [
-//   {
-//     id: "1",
-//     name: "Grand Hotel",
-//     address: "123 Main St, New York, NY 10001",
-//     location: { lat: 40.7128, lng: -74.006 },
-//     starRating: 4.5,
-//     totalRooms: 50,
-//     roomTypes: ["Deluxe Double", "Executive Suite", "Twin Room"],
-//     images: ["/placeholder.svg?height=400&width=600"],
-//   },
-//   {
-//     id: "2",
-//     name: "Seaside Resort",
-//     address: "456 Ocean Ave, Miami, FL 33139",
-//     location: { lat: 25.7617, lng: -80.1918 },
-//     starRating: 5,
-//     totalRooms: 120,
-//     roomTypes: ["Ocean View", "Garden View", "Presidential Suite", "Family Room"],
-//     images: ["/placeholder.svg?height=400&width=600"],
-//   },
-// ]
-

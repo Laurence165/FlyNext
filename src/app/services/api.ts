@@ -52,15 +52,26 @@ async function refreshToken() {
   }
 }
 
-// Generic fetch function with improved error handling
-async function fetchAPI<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  let token =
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+interface HotelWithRoomTypes {
+  id: string;
+  name: string;
+  logo?: string;
+  roomTypes: {
+    id: string;
+    name: string;
+    pricePerNight: number;
+    totalRooms: number;
+    availableRooms: number;
+    amenities: { amenity: string }[];
+    images: { imageUrl: string }[];
+  }[];
+}
 
-  const executeRequest = async (accessToken: string | null) => {
+// Generic fetch function with improved error handling
+async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  let token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+  const executeRequest = async (accessToken: string | null): Promise<T> => {
     const defaultHeaders = {
       "Content-Type": "application/json",
       ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
@@ -94,8 +105,8 @@ async function fetchAPI<T>(
           // Wait for the refresh to complete
           return new Promise((resolve, reject) => {
             failedQueue.push({ resolve, reject });
-          }).then(() => {
-            return executeRequest(localStorage.getItem("token"));
+          }).then((): Promise<T> => {
+            return executeRequest(localStorage.getItem('token'));
           });
         }
       }
@@ -112,9 +123,7 @@ async function fetchAPI<T>(
         }
 
         const error = await response.json();
-        const errorMessage =
-          error.message ||
-          `API Error: ${response.status} ${response.statusText}`;
+        const errorMessage = error.message || `API Error: ${response.status} ${response.statusText}`;
         console.error(errorMessage, error); // Log detailed error
         throw new Error(errorMessage);
       }
@@ -129,6 +138,7 @@ async function fetchAPI<T>(
 
   return executeRequest(token);
 }
+
 
 // Auth API
 export const authAPI = {
@@ -306,6 +316,9 @@ export const hotelAPI = {
     fetchAPI<void>(`/hotels/${hotelId}/roomTypes/${roomTypeId}`, {
       method: "DELETE",
     }),
+
+  getAllHotelOwnerRoomTypes: (date?: string) => 
+    fetchAPI<HotelWithRoomTypes[]>(`/bookings/getAllRoomTypes${date ? `?date=${date}` : ''}`),
 };
 
 // Flight API
