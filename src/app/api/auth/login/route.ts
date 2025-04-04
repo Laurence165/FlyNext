@@ -45,7 +45,7 @@ export async function POST(req: Request) {
         expiresIn: "7d",
       }
     );
-    console.log(user.id);
+    //console.log(user.id);
     return NextResponse.json(
       {
         message: "Login successful",

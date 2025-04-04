@@ -9,7 +9,7 @@ const hotelOwnerRoutes = ["/hotel-owner"]
 
 export function middleware(request: NextRequest) {
   const token = request.cookies.get("token")?.value
-  console.log(token)
+  //console.log(token)
   const path = request.nextUrl.pathname
 
   // Check if the path is a protected route
@@ -19,7 +19,7 @@ export function middleware(request: NextRequest) {
   const isHotelOwnerRoute = hotelOwnerRoutes.some((route) => path.startsWith(route))
 
   // If the route is protected and there's no token, redirect to login
-  console.log(isProtectedRoute + " " + !token)
+  //console.log(isProtectedRoute + " " + !token)
   if (isProtectedRoute && !token) {
     const url = new URL("/login", request.url)
     url.searchParams.set("callbackUrl", path)

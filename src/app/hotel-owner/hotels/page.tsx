@@ -53,16 +53,7 @@ export default function HotelsList() {
 
   const handleDeleteHotel = async (hotelId: string) => {
     try {
-      const response = await fetch(`/api/hotels`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ id: hotelId }),
-      })
-
-      if (!response.ok) throw new Error('Failed to delete hotel')
-
+      await hotelAPI.deleteHotels(hotelId)
       setHotels(hotels.filter(hotel => hotel.id !== hotelId))
       
       toast({
@@ -78,7 +69,7 @@ export default function HotelsList() {
       })
     }
   }
-
+  
   if (!user || !isHotelOwner) {
     return <div className="container mx-auto px-4 py-8 text-center">Loading...</div>
   }
@@ -108,7 +99,7 @@ export default function HotelsList() {
             <Card key={hotel.id} className="overflow-hidden">
               <div className="relative h-48 w-full">
                 <Image
-                  src={hotel.images[0]?.url || "/placeholder.svg?height=400&width=600"}
+                  src={hotel.logo || "/placeholder.svg?height=400&width=600"}
                   alt={hotel.name}
                   fill
                   className="object-cover"
@@ -139,6 +130,12 @@ export default function HotelsList() {
                   <Link href={`/hotel-owner/hotels/edit?id=${hotel.id}`}>
                     <Edit className="mr-2 h-4 w-4" />
                     Edit
+                  </Link>
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/hotel-owner/hotels/rooms?id=${hotel.id}`}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Add Room Types
                   </Link>
                 </Button>
                 <Button variant="destructive" size="sm" onClick={() => handleDeleteHotel(hotel.id)}>

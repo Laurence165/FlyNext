@@ -31,8 +31,6 @@ export default function AddHotel() {
     name: "",
     address: "",
     city: "",
-    latitude: 0,
-    longitude: 0,
     starRating: 0,
     logo: "",
     images: [] as string[],
@@ -149,8 +147,6 @@ export default function AddHotel() {
         name: formData.name,
         address: formData.address,
         city: formData.city,
-        latitude: Number(formData.latitude),
-        longitude: Number(formData.longitude),
         starRating: Number(formData.starRating),
         logo: formData.logo,
         images: images
@@ -242,35 +238,6 @@ export default function AddHotel() {
                     value={formData.city}
                     onChange={handleChange}
                     placeholder="e.g. New York"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="latitude">Latitude</Label>
-                  <Input
-                    id="latitude"
-                    name="latitude"
-                    type="number"
-                    step="any"
-                    value={formData.latitude}
-                    onChange={handleChange}
-                    placeholder="e.g. 40.7128"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="longitude">Longitude</Label>
-                  <Input
-                    id="longitude"
-                    name="longitude"
-                    type="number"
-                    step="any"
-                    value={formData.longitude}
-                    onChange={handleChange}
-                    placeholder="e.g. -74.0060"
                     required
                   />
                 </div>

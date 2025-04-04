@@ -201,6 +201,13 @@ export const hotelAPI = {
 
   getMyHotels: () => fetchAPI<Hotel[]>('/hotels/my-hotels'),
 
+  deleteHotels: async (id: string) => {
+    return fetchAPI(`/hotels`, {
+      method: 'DELETE',
+      body: JSON.stringify({ id }),
+    });
+  },
+    
   //updateHotel: () => fetchAPI<Hotel[]>
 
   addRoomTypes: (hotelId: string, roomType: AddRoomType) => 
@@ -328,14 +335,17 @@ export const checkoutAPI = {
 }
 
 export const createHotelAPI = {
-  // Example function to create a hotel
   createHotel: async (hotelData: any) => {
-      // Sending the POST request to the backend
-      fetchAPI('/hotels', {
-        method: 'POST',
-        body: JSON.stringify(hotelData),
-      });
-
+    const hotelDataWithLocation = {
+      ...hotelData,
+      latitude: 0,
+      longitude: 0
+    }
+    
+    return fetchAPI('/hotels', {
+      method: 'POST',
+      body: JSON.stringify(hotelDataWithLocation),
+    });
   },
 };
 

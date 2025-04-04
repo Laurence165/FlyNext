@@ -30,8 +30,9 @@ interface Hotel {
   roomTypes: {
     id: string
     name: string
+    totalRooms: String
     pricePerNight: number
-    maxGuests: number
+    //maxGuests: number
   }[]
 }
 
@@ -280,7 +281,7 @@ export default function HotelSearchResults() {
                 <div>
                   <p className="font-medium">{room.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    Up to {room.maxGuests} guests
+                    Up to {room.totalRooms} guests
                   </p>
                 </div>
                 <div className="text-right">

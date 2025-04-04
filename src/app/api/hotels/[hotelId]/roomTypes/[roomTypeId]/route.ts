@@ -51,7 +51,7 @@ export async function PUT(
     const user = await authenticateToken(req);
     if (user instanceof Response) return user;
 
-    const { hotelId, roomTypeId } = params;
+    const { hotelId, roomTypeId } = await params;
     const { name, pricePerNight, totalRooms, amenities, images } = await req.json();
 
     // Verify hotel exists and belongs to user

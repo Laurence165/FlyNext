@@ -11,7 +11,7 @@ export async function PUT(
   if (user instanceof NextResponse) return user;
 
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const notification = await prisma.notification.update({
       where: { id, userId: user.id }, // Ensures user can only mark their own notifications

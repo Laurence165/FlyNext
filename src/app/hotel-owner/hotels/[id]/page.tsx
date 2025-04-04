@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/router'  // Use useRouter from next/navigation
+import { useSearchParams } from 'next/navigation'  // Use useRouter from next/navigation
 import { Button } from '@/components/ui/button'
 import { hotelAPI } from '@/app/services/api'
 
@@ -15,8 +15,9 @@ type Hotel = {
 }
 
 const EditHotelPage = () => {
-  const router = useRouter()
-  const { id } = router.query  // Get `id` from query parameters
+  //const router = useRouter()
+  const searchParams = useSearchParams()
+  const id = searchParams.get('id')  // Get `id` from query parameters
   const [hotel, setHotel] = useState<Hotel | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
