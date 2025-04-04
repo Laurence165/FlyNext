@@ -11,6 +11,8 @@ RUN npm install
 # Copy the rest of the application
 COPY . .
 
+# Run the startup script
+RUN ./startup.sh
 # Generate Prisma client
 RUN npx prisma generate
 
