@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
     // Build filter object
     const filters: any = {};
-    console.log(guests)
+    console.log(guests);
     if (guests) {
       filters.roomTypes = {
         some: {
@@ -57,7 +57,6 @@ export async function GET(req: NextRequest) {
       };
     }
 
-
     // Fetch hotels based on filters
     const hotels = await prisma.hotel.findMany({
       where: filters,
@@ -70,7 +69,7 @@ export async function GET(req: NextRequest) {
             pricePerNight: true,
             images: true,
             amenities: true,
-            totalRooms: true
+            totalRooms: true,
           },
         },
       },
@@ -90,36 +89,28 @@ export async function POST(req: NextRequest) {
   const user = await authenticateToken(req);
   if (user instanceof Response) return user;
 
-try {
-  const body = await req.json();
-  let {
-    name,
-    address,
-    city,
-    latitude,
-    longitude,
-    starRating,
-    logo,
-    images,
-  } = body;
+  try {
+    const body = await req.json();
+    let { name, address, city, latitude, longitude, starRating, logo, images } =
+      body;
 
-  // Check if latitude and longitude are missing, and set them to 0 if so
-  if (!latitude) {
-    latitude = 0;
-  }
-  if (!longitude) {
-    longitude = 0;
-  }
+    // Check if latitude and longitude are missing, and set them to 0 if so
+    if (!latitude) {
+      latitude = 0;
+    }
+    if (!longitude) {
+      longitude = 0;
+    }
 
-  console.log(!name, !address, !city, !latitude, !longitude, !starRating);
+    console.log(!name, !address, !city, !latitude, !longitude, !starRating);
 
-  // Validate required fields
-  if (!name || !address || !city || !starRating) {
-    return NextResponse.json(
-      { error: "Missing required fields" },
-      { status: 400 }
-    );
-  }
+    // Validate required fields
+    if (!name || !address || !city || !starRating) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
 
     // Validate images if provided
     if (

@@ -12,6 +12,7 @@ import {
   Loader2,
   Clock,
   Package,
+  ChevronDown,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -28,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { useBooking } from "../components/booking/booking-context";
 import { useAuth } from "../components/auth/auth-context";
+import HotelSuggestions from "../components/hotel-suggestions";
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -48,6 +50,12 @@ export default function CartPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isRemoving, setIsRemoving] = useState<string | null>(null);
+  const [selectedDestination, setSelectedDestination] = useState<string | null>(
+    null
+  );
+  const [hotelSuggestions, setHotelSuggestions] = useState<any[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [destinationCity, setDestinationCity] = useState<string | null>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -87,6 +95,74 @@ export default function CartPage() {
   const calculateTotal = () => {
     return cart.reduce((total, item) => total + item.totalPrice, 0);
   };
+
+  const fetchHotelSuggestions = async (city: string) => {
+    try {
+      setIsLoadingSuggestions(true);
+      console.log("Fetching hotel suggestions for:", city);
+      const response = await fetch(
+        `/api/suggestions/hotel_suggestions?city=${encodeURIComponent(city)}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch hotel suggestions");
+      }
+      const data = await response.json();
+      console.log("Hotel suggestions response:", data);
+      setHotelSuggestions(data.hotels || []);
+    } catch (error) {
+      console.error("Error fetching hotel suggestions:", error);
+      setHotelSuggestions([]);
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  };
+
+  const handleDestinationSelect = (destination: string) => {
+    setSelectedDestination(destination);
+    fetchHotelSuggestions(destination);
+  };
+
+  const fetchDestinationCity = async (airportCode: string) => {
+    try {
+      console.log("Fetching city for airport code:", airportCode);
+      const response = await fetch(`/api/airports/${airportCode}`);
+      const data = await response.json();
+      console.log("Airport data:", data);
+      return data.city?.name || null;
+    } catch (error) {
+      console.error("Error fetching airport info:", error);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    const getDestinationCity = async () => {
+      for (const item of cart) {
+        if (item.flights && item.flights.length > 0) {
+          const lastFlight = item.flights[item.flights.length - 1];
+          if (lastFlight.destination) {
+            try {
+              const response = await fetch(
+                `/api/airports/${lastFlight.destination}`
+              );
+              const airportData = await response.json();
+              if (airportData.city?.name) {
+                console.log("Found destination city:", airportData.city.name);
+                setDestinationCity(airportData.city.name);
+                await fetchHotelSuggestions(airportData.city.name);
+              }
+            } catch (error) {
+              console.error("Error fetching airport data:", error);
+            }
+          }
+        }
+      }
+    };
+
+    if (cart.length > 0) {
+      getDestinationCity();
+    }
+  }, [cart]);
 
   if (isLoading || loading) {
     return (
@@ -467,7 +543,7 @@ export default function CartPage() {
           </div>
 
           <div className="lg:col-span-1">
-            <div className="sticky top-24">
+            <div className="sticky top-24 space-y-6">
               <Card className="border shadow-md">
                 <CardHeader>
                   <CardTitle className="text-xl flex items-center gap-2">
@@ -524,6 +600,29 @@ export default function CartPage() {
                   </Button>
                 </CardFooter>
               </Card>
+
+              {destinationCity && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Hotel className="h-5 w-5" />
+                      Add Hotel in {destinationCity}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingSuggestions ? (
+                      <div className="flex items-center justify-center p-4">
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      </div>
+                    ) : (
+                      <HotelSuggestions
+                        hotels={hotelSuggestions}
+                        onClose={() => setSelectedDestination(null)}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </div>

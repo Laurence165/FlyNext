@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts",
+    "clear-db": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/clearDb.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
