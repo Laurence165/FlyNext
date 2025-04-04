@@ -33,7 +33,7 @@ export async function GET(request) {
       outbound: departFlights.results || [],
       return: returnFlights.results || [],
     };
-
+    console.log(roundTripOptions);
     return NextResponse.json(roundTripOptions, {
       status: 200,
       headers: {

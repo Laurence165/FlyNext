@@ -10,16 +10,11 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
+    serverActions: true,
     webpackBuildWorker: true,
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
-    serverActions: {
-      bodySizeLimit: '20mb',
-    },
   },
-  serverActions: {
-    bodySizeLimit: '10mb'
-  },
-}
+};
 
-export default nextConfig
+export default nextConfig;
