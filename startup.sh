@@ -11,7 +11,9 @@ npm install
 
 # Run Prisma migrations
 echo "Running database migrations..."
-npx prisma migrate dev --name init
+#npx prisma migrate dev --name init
+npx prisma generate
+npx prisma migrate deploy
 
 # Run the initialization script to fetch data from AFS
 echo "Fetching data from Advanced Flights System..."
